@@ -1,0 +1,32 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+mlflow = "==3.1.1"
+jupyter = "==1.1.1"
+scikit-learn = "==1.7.1"
+pandas = "==2.3.1"
+seaborn = "==0.13.2"
+hyperopt = "==0.2.7"
+xgboost = "==3.0.2"
+fastparquet = "==2024.11.0"
+boto3 = "==1.39.9"
+prefect = "==3.4.9"
+evidently = "==0.7.10"
+psycopg = "==3.2.9"
+psycopg-binary = "==3.2.9"
+
+[dev-packages]
+pylint = "==3.3.7"
+ruff = "==0.12.4"
+black = "==25.1.0"
+isort = "==6.0.1"
+pre-commit = "==4.2.0"
+bandit = "==1.8.6"
+commitizen = "==4.8.3"
+
+[requires]
+python_version = "3.11"
+python_full_version = "3.11.7"
