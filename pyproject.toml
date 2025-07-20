@@ -29,19 +29,83 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
 
-# add configuration for pylint
+## PYLINT
 [tool.pylint]
-disable = [
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "missing-function-docstring"
-]
-max-line-length = 88
-good-names = ["i", "j", "k", "df", "x", "y"]
-ignore = ["tests", "build", "dist"]
+ignore = ["build", "dist"]
 extension-pkg-whitelist = ["numpy", "pandas"]
+
+
+[tool.pylint.basic]
+no-docstring-rgx = "__.*__|test[A-Z_].*|setUp|_decorator|_wrapper|_.*"
+
+[tool.pylint.classes]
+# This section configures Pylint to recognize certain methods as attribute-defining methods in classes
+defining-attr-methods = [
+    "__init__",
+    "__new__",
+    "setUp",
+    "reset",
+]
+
+[tool.pylint.design]
+max-args = 15
+max-attributes = 40
+max-bool-expr = 5
+max-branches = 50
+max-locals = 50
+max-parents = 12
+max-public-methods = 500
+max-returns = 20
+max-statements = 150
+min-public-methods = 0
 output-format = "colorized"
-reports = false
+
+[tool.pylint."messages control"]
+enable = [
+    "useless-suppression",
+]
+disable = [
+    "spelling",
+    # Messages that are just silly:
+    "locally-disabled",
+    "exec-used",
+    "global-statement",
+    "broad-except",
+    "no-else-return",
+    "subprocess-run-check",
+    "use-dict-literal",
+    # Messages that may be silly:
+    "no-member",
+    "using-constant-test",
+    "too-many-nested-blocks",
+    "too-many-ancestors",
+    "unnecessary-pass",
+    "no-else-break",
+    "no-else-continue",
+    # Questionable things, but it's ok, I don't need to be told:
+    "import-outside-toplevel",
+    "self-assigning-variable",
+    "consider-using-with",
+    "missing-timeout",
+    "too-many-lines",
+    "use-implicit-booleaness-not-comparison",
+    # Formatting stuff
+    "superfluous-parens",
+    # Messages that are noisy for now, eventually maybe we'll turn them on:
+    "invalid-name",
+    "protected-access",
+    "unspecified-encoding",
+    "consider-using-f-string",
+    "duplicate-code",
+    "cyclic-import",
+]
+
+[tool.pylint.reports]
+score = false
+
+[tool.pylint.variables]
+dummy-variables-rgx = "_|unused|.*_unused"
+ignored-argument-names = "_|unused|.*_unused"
 
 [tool.ruff]
 target-version = "py311"
@@ -84,7 +148,7 @@ indent-width = 4
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
-select = ["E4", "E7", "E9", "F"]
+select = ["E4", "E7", "E9", "E", "F", "B", "I", "UP", "C90"]
 ignore = []
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
@@ -107,26 +171,21 @@ line-length = 88
 target-version = ["py311"]
 skip-string-normalization = true
 
-[tool.isort]
-multi_line_output = 3
-length_sort = true
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-combine_as_imports = true
-force_single_line = false
-known_third_party = ["numpy", "pandas", "scikit-learn", "matplotlib", "seaborn", "scipy"]
-known_first_party = ["epl_predictions"]
-default_section = "THIRDPARTY"
-sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
-skip = ["tests", "build", "dist", "node_modules", "site-packages", "venv"]
-add_imports = []
 
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+length_sort = true
+known_first_party = ["epl_predictions"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-tag_format = "pep008"
-version_scheme = "pep440"
 version_provider = "pep621"
+version_scheme = "pep440"
+tag_format = "v$version"
 update_changelog_on_bump = true
 major_version_zero = true
+changelog_file = "CHANGELOG.md"
+changelog_incremental = true
+annotated_tag = true
