@@ -293,7 +293,7 @@ resource "aws_secretsmanager_secret_version" "db_credentials" {
   secret_string = jsonencode({
     username = aws_db_instance.postgres.username
     password = random_password.db_password.result
-    host     = aws_db_instance.postgres.endpoint
+    host     = aws_db_instance.postgres.address
     port     = aws_db_instance.postgres.port
     dbname   = aws_db_instance.postgres.db_name
   })
@@ -339,7 +339,7 @@ resource "null_resource" "wait_for_db" {
 
 # Create additional databases
 resource "postgresql_database" "mlflow_db" {
-  name  = "mlflow_tracking"
+  name  = "mlflow"
   owner = aws_db_instance.postgres.username
 
   depends_on = [

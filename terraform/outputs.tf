@@ -36,7 +36,7 @@ output "database_credentials" {
 }
 
 output "created_databases_names" {
-  description = "Database names"
+  description = "Created databases names"
   value       = [
     aws_db_instance.postgres.db_name,
     postgresql_database.mlflow_db.name
@@ -63,13 +63,20 @@ output "log_groups" {
   }
 }
 
-# Useful commands
-output "get_database_credentials_command" {
-  description = "Command to get database credentials"
-  value       = "terraform output -raw database_credentials"
+# Secrets Manager outputs
+output "db_credentials_secret_name" {
+  description = "Name of the Secrets Manager secret for database credentials"
+  value       = aws_secretsmanager_secret.db_credentials.name
 }
 
+# Useful commands
 output "get_secrets_command" {
   description = "Command to get database credentials from Secrets Manager"
   value       = "aws secretsmanager get-secret-value --secret-id ${aws_secretsmanager_secret.db_credentials.name} --query SecretString --output text"
+}
+
+output "get_mlflow_database_uri" {
+  description = "Command to get the MLflow database URI"
+  value       = "postgresql+psycopg2://${aws_db_instance.postgres.username}:${aws_db_instance.postgres.password}@${aws_db_instance.postgres.endpoint}/${postgresql_database.mlflow_db.name}"
+  sensitive   = true
 }
