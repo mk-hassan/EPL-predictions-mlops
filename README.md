@@ -1,3 +1,121 @@
+# 🏆 EPL-Predictions: A Production-Ready Football Match Predictor
+
+##  Overview
+This project is a **full-stack Machine Learning Operations (MLOps)** pipeline designed to predict outcomes of **English Premier League (EPL)** football matches. It uses historical and regularly updated match-level data, with a focus on engineering a system that automates **data ingestion**, **model training**, **model monitoring**, and **deployment**.
+
+Rather than being a one-shot model, this project simulates a production environment where new match data is released **weekly or monthly**, and the system **retrains models**, **detects drift**, and **monitors performance** over time.
+
+
+## Data Source
+
+> [!TIP]
+> League Division refers to the specific league or division the match belongs to.
+This field helps identify which football competition the data is sourced from.
+>
+> Common league codes in the dataset:\
+> **E0** → English Premier League (Top tier)\
+> **E1** → English Championship (2nd tier)\
+> **E2** → English League One (3rd tier)\
+> **E3** → English League Two (4th tier)
+>
+> ✅ In this project, we primarily focus on E0 (Premier League).
+
+Data relies on [`football-data.co.uk`](https://www.football-data.co.uk/) — a well-maintained, structured source of historical EPL results and stats provided in csv format.
+
+This dataset provides match-level statistics for Premier League fixtures spanning from at least the 1993/94 season up to the current season, updated twice weekly.
+
+### 🧩 Core Game Info
+| Column          | Description                                            |
+| --------------- | ------------------------------------------------------ |
+| `Date`          | Match date (DD/MM/YY)                                  |
+| `HomeTeam`      | Home team name                                         |
+| `AwayTeam`      | Away team name                                         |
+| `FTHG` / `FTAG` | Full-time goals for home and away                      |
+| `FTR`           | Full-time result: H = home win, D = draw, A = away win |
+| `HTHG` / `HTAG` | Half-time home/away goals                              |
+| `HTR`           | Half-time result (H, D, A)                             |
+
+### 📊 Match Statistics (where available)
+|Column                 | Meaning                         |
+| --------------------- | ------------------------------- |
+|`HS`, `AS`             | Shots by home / away teams      |
+| `HST`, `AST`          | Shots on target for home / away |
+| `HC`, `AC`            | Corner kicks for home / away    |
+| `HF`, `AF`            | Fouls committed                 |
+| `HY`, `AY`            | Yellow cards                    |
+| `HR`, `AR`            | Red cards                       |
+
+
+### 🎯 Betting Odds (if present)
+Depending on season file:
+
+B365H, B365D, B365A = Bet365 odds (home win, draw, away win)
+
+May include closing odds (B365CH, B365CD, B365CA) for later seasons
+
+
+##  Technologies Used
+| Purpose             | Tools / Stack                                         |
+| ------------------- | ------------------------------------------------------|
+| Language            | Python 3.11                                           |
+| Orchestration       | Prefect                                               |
+| Monitoring          | Grafana, Loki, Mimir, Tempo, Evidently                |
+| Deployment          | Docker, AWS (ECS, S3, RDS, other services), Terraform |
+| Experiment Tracking | MLflow                                                |
+| Linting & Testing   | Ruff, Black, Pytest                                   |
+| CI/CD               | GitHub Actions                                        |
+
+
+## Problem Type: Multi-Class Classification
+
+### Primary Task: Match Outcome Prediction
+- **Target Variable:** full_time_result
+- **Classes:**
+  - 0 = Away Win (A)
+  - 1 = Draw (D)
+  - 2 = Home Win (H)
+
+### What the App Solves:
+**Given two team names, predict the most likely match outcome**
+
+Input:
+```
+Home Team: Manchester City
+Away Team: Liverpool
+```
+Output:
+```
+Prediction: Home Win (H)
+Confidence:
+- Home Win: 45%
+- Draw: 30%
+- Away Win: 25%
+```
+### Classification Pipeline (Psudo)
+
+```python
+def predict_match_outcome(home_team, away_team):
+    """Main classification function"""
+
+    # 1. Feature Engineering
+    features = engineer_features(home_team, away_team)
+
+    # 2. Classification Model
+    probabilities = classifier.predict_proba([features])
+    prediction = classifier.predict([features])
+
+    # 3. Return structured output
+    return {
+        'predicted_outcome': ['Away Win', 'Draw', 'Home Win'][prediction[0]],
+        'probabilities': {
+            'away_win': probabilities[0][0],
+            'draw': probabilities[0][1],
+            'home_win': probabilities[0][2]
+        },
+        'confidence': max(probabilities[0])
+    }
+```
+
 ## Setting Up the Environment
 
 To activate and install the dependencies for this project, follow these steps:
@@ -447,17 +565,15 @@ terraform plan
 #### Staged Deployment (to start with local testing and ML tracking)
 ```bash
 terraform apply
-   -target=aws_s3_bucket.mlflow_artifacts \
-   -target=aws_s3_bucket.data_storage \
-   -target=random_password.db_password \
-   -target=aws_db_subnet_group.postgres_subnet_group \
-   -target=aws_security_group.rds_sg \
-   -target=aws_db_instance.postgres \
-   -target=aws_secretsmanager_secret.db_credentials \
-   -target=aws_secretsmanager_secret_version.db_credentials \
-   -target=postgresql_database.mlflow_db \
-   -target=postgresql_database.app_db \
-   -target=postgresql_database.analytics_db
+   -target=aws_s3_bucket.mlflow_artifacts
+   -target=aws_s3_bucket.data_storage
+   -target=random_password.db_password
+   -target=aws_db_subnet_group.postgres_subnet_group
+   -target=aws_security_group.rds_sg
+   -target=aws_db_instance.postgres
+   -target=aws_secretsmanager_secret.db_credentials
+   -target=aws_secretsmanager_secret_version.db_credentials
+   -target=postgresql_database.mlflow_db
 ```
 
 #### Complete Deployment

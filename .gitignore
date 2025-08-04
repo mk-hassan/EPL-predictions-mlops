@@ -205,3 +205,14 @@ __marimo__/
 # terraform
 .terraform/
 .terraform.lock.hcl
+
+# .env versions
+.env.development
+.env.staging
+
+# raw data
+data/raw/*.csv
+data/raw/*.parquet
+
+# vscode settings
+.vscode/*

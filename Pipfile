@@ -13,10 +13,17 @@ hyperopt = "==0.2.7"
 xgboost = "==3.0.2"
 fastparquet = "==2024.11.0"
 boto3 = "==1.39.9"
-prefect = "==3.4.9"
 evidently = "==0.7.10"
 psycopg = "==3.2.9"
 psycopg-binary = "==3.2.9"
+requests = "==2.32.4"
+sqlalchemy = "==2.0.41"
+pydantic = "==2.11.7"
+prefect = {extras = ["aws"], version = "*"}
+psycopg2-binary = "==2.9.9"
+catboost = "==1.2.8"
+fastapi = {extras = ["standard"], version = "==0.116.1"}
+uvicorn = "==0.35.0"
 
 [dev-packages]
 pylint = "==3.3.7"
@@ -26,6 +33,9 @@ isort = "==6.0.1"
 pre-commit = "==4.2.0"
 bandit = "==1.8.6"
 commitizen = "==4.8.3"
+pytest = "==8.4.1"
+pytest-asyncio = "==1.1.0"
+testcontainers = {extras = ["localstack", "postgresql"], version = "*"}
 
 [requires]
 python_version = "3.11"
