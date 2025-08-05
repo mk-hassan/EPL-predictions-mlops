@@ -1,0 +1,92 @@
+# EPL Data Schema Configuration
+# Defines required columns and ML features for the EPL predictions pipeline
+
+# Raw data columns required from football-data.co.uk
+required_columns:
+  # Match identifiers
+  - div          # Division (E0 for Premier League)
+  - date         # Match date
+  - hometeam     # Home team name
+  - awayteam     # Away team name
+  - referee      # Match referee
+
+  # Match results
+  - fthg         # Full time home goals
+  - ftag         # Full time away goals
+  - ftr          # Full time result (H/D/A)
+  - hthg         # Half time home goals
+  - htag         # Half time away goals
+  - htr          # Half time result (H/D/A)
+
+  # Match statistics
+  - hs           # Home team shots
+  - as           # Away team shots
+  - hst          # Home team shots on target
+  - ast          # Away team shots on target
+  - hc           # Home team corners
+  - ac           # Away team corners
+  - hf           # Home team fouls
+  - af           # Away team fouls
+  - hy           # Home team yellow cards
+  - ay           # Away team yellow cards
+  - hr           # Home team red cards
+  - ar           # Away team red cards
+
+  # Betting odds (William Hill)
+  - whh          # William Hill home win odds
+  - whd          # William Hill draw odds
+  - wha          # William Hill away win odds
+
+  # Derived columns
+  - season       # Season identifier (e.g., "2425")
+
+# Machine learning features organized by category
+ml_features:
+  # Core match information
+  core:
+    - match_id
+    - date
+    - hometeam
+    - awayteam
+
+  # Home team recent form features (last N matches)
+  home_team_form:
+    - home_wins_last_n
+    - home_draws_last_n
+    - home_losses_last_n
+    - home_goals_scored_last_n
+    - home_goals_conceded_last_n
+    - home_form_points
+
+  # Away team recent form features (last N matches)
+  away_team_form:
+    - away_wins_last_n
+    - away_draws_last_n
+    - away_losses_last_n
+    - away_goals_scored_last_n
+    - away_goals_conceded_last_n
+    - away_form_points
+
+  # Head-to-head historical performance
+  head_to_head:
+    - h2h_home_wins
+    - h2h_away_wins
+    - h2h_draws
+
+  # Historical average odds for home team
+  home_avg_odds:
+    - whd_home_avg    # Average draw odds when playing at home
+    - wha_home_avg    # Average away odds when playing at home
+    - whh_home_avg    # Average home odds when playing at home
+
+  # Historical average odds for away team
+  away_avg_odds:
+    - whd_away_avg    # Average draw odds when playing away
+    - wha_away_avg    # Average away odds when playing away
+    - whh_away_avg    # Average home odds when playing away
+
+  # Prediction targets
+  target_variables:
+    - target_result      # Match result (H/D/A)
+    - target_home_goals  # Home team goals scored
+    - target_away_goals  # Away team goals scored

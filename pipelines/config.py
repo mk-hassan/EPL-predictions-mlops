@@ -1,3 +1,17 @@
+"""
+Prefect Configuration Setup for EPL Predictions Pipeline
+
+Sets up Prefect variables and AWS credentials for data ingestion and ML pipelines.
+Works with both local Prefect servers and Prefect Cloud deployments.
+
+Usage:
+    python pipelines/config.py --s3-data-bucket my-bucket --aws-region eu-south-1
+
+Environment Variables:
+    AWS_DATABASE_SECRETS_NAME, AWS_S3_DATA_BUCKET_NAME, AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY, AWS_REGION
+"""
+
 import os
 import argparse
 
@@ -9,7 +23,7 @@ if __name__ == "__main__":
 
     # Prefect variables
     parser.add_argument("--database-secrets", help="Database secrets name")
-    parser.add_argument("--s3-bucket", help="S3 bucket name")
+    parser.add_argument("--s3-data-bucket", help="S3 bucket name")
 
     # AWS credentials
     parser.add_argument("--aws-access-key", help="AWS access key ID")
@@ -20,7 +34,7 @@ if __name__ == "__main__":
 
     # Use args or fallback to environment variables
     database_secrets = args.database_secrets or os.getenv("AWS_DATABASE_SECRETS_NAME")
-    s3_bucket = args.s3_bucket or os.getenv("AWS_S3_BUCKET_NAME")
+    s3_bucket = args.s3_data_bucket or os.getenv("AWS_S3_DATA_BUCKET_NAME")
     aws_access_key = args.aws_access_key or os.getenv("AWS_ACCESS_KEY_ID")
     aws_secret_key = args.aws_secret_key or os.getenv("AWS_SECRET_ACCESS_KEY")
     aws_region = args.aws_region or os.getenv("AWS_REGION")

@@ -1,5 +1,4 @@
 import sys
-import json
 from io import BytesIO
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -12,10 +11,10 @@ from prefect.futures import wait
 from prefect.cache_policies import INPUTS
 
 # Add project root to Python path
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parents[2]))
+from config import get_config, get_required_columns
 from pipelines.hooks import retry_handler
-from src.core.config import get_config
-from pipelines.helpers import parse_football_date
+from pipelines.helpers import parse_match_date
 from src.models.DivisionEnum import Division
 
 
@@ -58,7 +57,7 @@ def _clean_data(season: str, df: pd.DataFrame) -> pd.DataFrame:
 
     df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(" ", "_")
 
-    df_cleaned["date"] = df_cleaned["date"].apply(parse_football_date)
+    df_cleaned["date"] = df_cleaned["date"].apply(parse_match_date)
     df_cleaned = df_cleaned.dropna(subset=["date", "hometeam", "awayteam"])  # Drop rows with invalid dates
 
     df_cleaned["season"] = season
@@ -94,25 +93,17 @@ def get_season_results(season: str, division_code: str) -> pd.DataFrame:
     df = pd.read_csv(BytesIO(response.content))
     cleaned_df = _clean_data(season, df)
 
-    data_definition_path = Path(__file__).parent.parent / "src/core/required_columns.json"
-    if not data_definition_path.exists():
-        logger.error(f"Data definition file not found: {data_definition_path}")
-        raise FileNotFoundError(f"Data definition file not found: {data_definition_path}")
+    required_columns = get_required_columns()
 
-    with open(data_definition_path, encoding="utf-8") as f:
-        data_definition = json.load(f)
-
-    if "required_columns" not in data_definition:
-        logger.error("Data definition JSON must contain 'required_columns' key")
-        raise ValueError("Data definition JSON must contain 'required_columns' key")
+    if not required_columns:
+        raise ValueError("No required columns found in configuration")
 
     # raise if the columns are not present in the DataFrame
-    missing_columns = set(data_definition["required_columns"]) - set(cleaned_df.columns)
+    missing_columns = set(required_columns) - set(cleaned_df.columns)
     if missing_columns:
         logger.error(f"Missing required columns in DataFrame: {missing_columns}")
         raise ValueError(f"Missing required columns in DataFrame: {missing_columns}")
 
-    required_columns = data_definition["required_columns"]
     return cleaned_df[required_columns]
 
 

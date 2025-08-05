@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def parse_football_date(date_str):
+def parse_match_date(date_str):
     """Parse football data dates which can be in various formats."""
     if pd.isna(date_str):
         return pd.NaT
