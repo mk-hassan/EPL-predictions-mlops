@@ -13,7 +13,7 @@ Rather than being a one-shot model, this project simulates a production environm
 This field helps identify which football competition the data is sourced from.
 >
 > Common league codes in the dataset:\
-> **E0** → English Premier League (Top tier)\
+> **E0** → English Premier League (Top tier) [Only used]\
 > **E1** → English Championship (2nd tier)\
 > **E2** → English League One (3rd tier)\
 > **E3** → English League Two (4th tier)
@@ -54,16 +54,78 @@ B365H, B365D, B365A = Bet365 odds (home win, draw, away win)
 May include closing odds (B365CH, B365CD, B365CA) for later seasons
 
 
+## 🚧 Data Challenges & Solutions
+
+### Challenges Faced
+During data collection from football-data.co.uk spanning 25+ seasons (2000-2025), several issues emerged:
+
+1. **📅 Inconsistent Date Formats**: Different seasons used varying date formats (`DD/MM/YY`, `DD/MM/YYYY`, `YYYY-MM-DD`)
+2. **💾 Corrupted Files**: Some season files were incomplete or had encoding issues
+3. **📊 Non-Deterministic Columns**: Column availability varied significantly across seasons
+
+### Solution Approach
+
+**Data Discovery (`pipelines/data_discovery.py`)**:
+```python
+# Pseudocode for column standardization
+common_columns = set(first_season_columns)
+for season in range(2000, 2025):
+    try:
+        df = fetch_season_data(season)
+        common_columns = common_columns ∩ df.columns  # Intersection
+    except CorruptedFileError:
+        skip_season(season)
+
+# Result: Only columns present in ALL seasons
+final_columns = common_columns  # 27 reliable columns
+```
+
+**Required Columns Found** (`config/params.yaml`):
+After analysis, these **27 columns** are consistently available across all seasons:
+```yaml
+required_columns:
+  # Match identifiers: div, date, hometeam, awayteam, referee
+  # Results: fthg, ftag, ftr, hthg, htag, htr
+  # Statistics: hs, as, hst, ast, hc, ac, hf, af, hy, ay, hr, ar
+  # Odds: whh, whd, wha
+  # Derived: season
+```
+
+**Date Parsing (`pipelines/helpers.py`)**:
+```python
+def parse_match_date(date_str):
+    formats = ["%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d", "%d-%m-%Y"]
+
+    for format in formats:
+        try:
+            parsed_date = pd.to_datetime(date_str, format=format)
+            if parsed_date.year < 1950:  # Fix 2-digit year ambiguity
+                parsed_date += 100_years
+            return parsed_date
+        except:
+            continue
+
+    return pd.NaT  # Failed to parse
+```
+
+**Result**: Robust data pipeline handling 25+ seasons with consistent schema and reliable date parsing.
+
+---
+
 ##  Technologies Used
 | Purpose             | Tools / Stack                                         |
 | ------------------- | ------------------------------------------------------|
 | Language            | Python 3.11                                           |
 | Orchestration       | Prefect                                               |
 | Monitoring          | Grafana, Loki, Mimir, Tempo, Evidently                |
-| Deployment          | Docker, AWS (ECS, S3, RDS, other services), Terraform |
+| Infrastructure      | Terraform                                             |
+| Deployment          | Docker, AWS (ECS, S3, RDS, VPC, Secrets Manager, IAM) |
 | Experiment Tracking | MLflow                                                |
-| Linting & Testing   | Ruff, Black, Pytest                                   |
+| Linting             | pylint, Ruff, Black, isort, bandit, pre-commit        |
+| Development Tools   | Commitizen, MakeFile                                  |
+| Testing             | pytest, TestContainer                                 |
 | CI/CD               | GitHub Actions                                        |
+|
 
 
 ## Problem Type: Multi-Class Classification
@@ -123,14 +185,16 @@ To activate and install the dependencies for this project, follow these steps:
 1. **Activate Pipenv Shell**
    Open your terminal and navigate to the project directory:
    ```bash
-   cd /path/to/EPL-predictions
+   > cd /path/to/EPL-predictions
    ```
 
 2. **Install Dependencies Using uv (Recommended)**
    If you have `uv` installed, set the environment variable and run:
    ```bash
-   export PIPENV_INSTALLER=uv
-   pipenv install
+   > export PIPENV_INSTALLER=uv
+   > pipenv install
+    # or install all including dev dependancies
+   > pipenv shell --dev
    ```
    This will use `uv` for faster and more reliable dependency installation.
 
@@ -138,16 +202,16 @@ To activate and install the dependencies for this project, follow these steps:
    If you do not have `uv` installed, Pipenv will fall back to using `pip`.
    You can install dependencies normally:
    ```bash
-   pipenv install
+   > pipenv install
    ```
 
 4. **Activate the Virtual Environment**
    After installation, activate the environment:
    ```bash
-   pipenv shell
+   > pipenv shell
    ```
 
-This will set up all required packages as specified in the `Pipfile`.
+This will set up all required packages as specified in the `Pipfile` and locking the dependancies on `Pipfile.lock`.
 
 ---
 
@@ -157,7 +221,7 @@ To enable automated code quality and security checks before each commit, initial
 
 ### Setup Tasks
 
-- **Install pre-commit (if not already installed):**
+- **Install pre-commit (if not already installed [dev dependancies]):**
   ```bash
   pipenv install --dev pre-commit
   ```
@@ -193,7 +257,7 @@ pre-commit run --all
 
 ## Infrastructure Overview
 
-This document provides a comprehensive overview of the Terraform-managed infrastructure for the EPL Predictions project, emphasizing architectural decisions, best practices, and organizational patterns.
+This section provides a comprehensive overview of the Terraform-managed infrastructure for the EPL Predictions project, emphasizing architectural decisions, best practices, and organizational patterns.
 
 ---
 
@@ -239,14 +303,15 @@ The infrastructure follows a modular single-directory approach with clear separa
 
 ```bash
 terraform/
-├── .terraform/             # Provider downloads & state cache
-├── scripts/                # Provisioning & utility scripts
-├── backend.tf              # State management configuration
-├── main.tf                 # Core infrastructure resources
-├── monitoring.tf           # Observability & alerting
-├── outputs.tf              # Exposed values & connection details
-├── providers.tf            # Provider configurations
-└── terraform.tf            # Version constraints & requirements
+├── backend.tf
+├── main.tf
+├── monitoring.tf
+├── outputs.tf
+├── providers.tf
+├── scripts
+│   ├── database_check.sh
+│   └── user_data.sh
+└── terraform.tf
 ```
 
 ### 3. Required Tools Installation
@@ -272,9 +337,9 @@ terraform version
 
 **configure aws credentiales:**
 
-- `aws config` stores the credentials into 2 files at HOME/.aws/credentiales and HOME/.aws/config
-- aws cofig asks you to enter USER credentials besides the region to use by default (eu-south-1)
-- user should have access to EC2, S3, RDS, Cloud watch, Secrets manager
+- `aws config` stores the credentials into 2 files at `$HOME/.aws/credentiales` and `$HOME/.aws/config`
+- aws cofig asks you to enter `USER` credentials besides the region to use by default, I used `eu-south-1` as it the nearest for me but you should use the appropriate region nearest to your location.
+- `USER` should have access to EC2, S3, RDS, Cloud watch, Secrets manager
 
 > [!NOTE]
 > specifying the credentials within the aws provider block is highly discourged and not best practice. So the credentials must be specified within the bese class
@@ -290,7 +355,7 @@ terraform version
 **PostgreSQL Client:**
 [Install postgres client depending on the OS](https://www.postgresql.org/download/)
 ```bash
-# Install PostgreSQL client tools
+# Install PostgreSQL client tools, needed just pg_isready tool to test connectivity (See null_resource.wait_for_db)
 brew install postgresql
 
 # Verify pg_isready command
@@ -298,9 +363,18 @@ brew install postgresql
 pg_isready --version
 ```
 
-**Manually created S3 bucket**
+**Manually created S3 bucket** \
 This bucket will be used to store the terraform infrastructure state.\I named the bucket as `epl-predictor-tf-state` so I will continue with this name.
 
+if you named your bucket another name, please update `terraform/backend.tf` with the bucket name
+```bash
+terraform {
+  backend "s3" {
+    bucket  = # bucket name
+    ...
+  }
+}
+```
 ---
 
 ### 4. Infrastructure Components
@@ -315,7 +389,7 @@ This bucket will be used to store the terraform infrastructure state.\I named th
 
 **Storage**:
 - **S3 Buckets**: Separate buckets for MLflow artifacts and data storage
-- **RDS PostgreSQL**: Managed database with multiple logical databases (MLFlow experiment tracking, actual app data)
+- **RDS PostgreSQL**: Managed database with multiple logical databases (MLFlow experiment tracking, actual app data as `Data warehouse`)
 
 **Networking**:
 - **Default VPC:** Leverages existing AWS VPC infrastructure
@@ -419,6 +493,13 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 
 **Credential Management:**
 - Database passwords stored in AWS Secrets Manager
+> [!NOTE] Access credentials using
+> After applying the infrastructure
+> ```bash
+> aws secretsmanager get-secret-value \
+> --secret-id ${aws_secretsmanager_secret.db_credentials.name} \
+> --query SecretString --output text
+> ```
 - Random password generation with 16-character complexity
 - No hardcoded credentials in code or configuration
 
@@ -434,8 +515,8 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 
 ---
 
-### Monitoring & Observability
-CloudWatch Integration
+#### Monitoring & Observability
+**CloudWatch** Integration
 **Log Groups:**
 - EC2 system logs with 7-day retention
 - Application logs with 14-day retention
@@ -456,20 +537,20 @@ CloudWatch Integration
 
 ---
 
-### Advanced Terraform Techniques
+#### Advanced Terraform Techniques
 
-#### State Management
+##### State Management
 ```bash
 # Remote state storage on S3
 backend "s3" {
-   bucket  = "epl-predictor-tf-state"
-   key     = "terraform.tfstate"
-   region  = "eu-south-1"
-   encrypt = true
+  bucket  = "epl-predictor-tf-state"
+  key     = "terraform.tfstate"
+  region  = "eu-south-1"
+  encrypt = true
 }
 ```
 
-#### Provider Configuration
+##### Provider Configuration
 ```bash
 # Multi-provider setup
 provider "aws" {
@@ -493,7 +574,7 @@ provider "postgresql" {
 }
 ```
 
-#### Null Resource Tricks
+##### Null Resource Tricks
 **Database Readiness Check:**
 
 - Uses pg_isready command to verify RDS availability
@@ -538,7 +619,7 @@ resource "random_id" "secret_suffix" {
 }
 ```
 
-#### Local Values & Data Sources
+##### Local Values & Data Sources
 ```bash
 # Centralized project naming
 locals {
@@ -553,36 +634,46 @@ data "aws_vpc" "default" {
 ```
 ---
 
-### Deployment Commands
-#### Initialization
+#### Deployment Commands
+##### Initialization
 ```bash
-cd terraform/
-terraform init
-terraform validate
-terraform plan
+cd terraform
+# Init terraform state
+terraform init && terraform validate
 ```
 
-#### Staged Deployment (to start with local testing and ML tracking)
+##### Staged Deployment (to start with local testing and ML tracking)
+```bash
+# Apply the base resources
+terraform apply -auto-approve \
+		-target=aws_s3_bucket.mlflow_artifacts \
+		-target=aws_s3_bucket.data_storage \
+		-target=aws_db_instance.postgres \
+		-target=aws_secretsmanager_secret_version.db_credentials \
+		-target=postgresql_database.mlflow_db
+```
+
+**OR** you can simply use `MakeFile`
+```bash
+make apply-base-infra
+```
+
+##### Complete Deployment
 ```bash
 terraform apply
-   -target=aws_s3_bucket.mlflow_artifacts
-   -target=aws_s3_bucket.data_storage
-   -target=random_password.db_password
-   -target=aws_db_subnet_group.postgres_subnet_group
-   -target=aws_security_group.rds_sg
-   -target=aws_db_instance.postgres
-   -target=aws_secretsmanager_secret.db_credentials
-   -target=aws_secretsmanager_secret_version.db_credentials
-   -target=postgresql_database.mlflow_db
 ```
 
-#### Complete Deployment
+#### Useful outputs
 ```bash
-terraform apply
+# mlflow server backend-uri
+terraform output -raw get_mlflow_database_uri
 ```
+> [!NOTE]
+> For complete List of outputs lookat `terraform/output.tf` \
+> Use `terraform output <output-name>` and use option `-raw` for **sensitive** outputs
 
-### Troubleshooting
-#### Issue 1: Secrets Manager Conflict
+#### Troubleshooting
+##### Issue 1: Secrets Manager Conflict
 ```bash
 # aws secrets manager doesn't remove the keys directly but waiting up to 30 days
 Error: Secret with this name is already scheduled for deletion
@@ -607,7 +698,7 @@ resource "aws_secretsmanager_secret" "db_credentials" {
 }
 ```
 
-#### Issue 2: Database under creation
+##### Issue 2: Database under creation
 This issue should be resolved by using the null_resource.wait_for_db
 ```bash
 Error: PostgreSQL server not ready
@@ -621,4 +712,279 @@ pgcli -h $(terraform output -raw database_endpoint) -U postgres_admin -d epl-pre
 CREATE DATABASE mlflow_tracking;
 ```
 
-> This infrastructure provides a complete, secure, and monitored environment optimized for AWS Free Tier usage while maintaining production-ready patterns and practices.
+## Data Ingestion Pipelines
+
+This project implements robust data ingestion pipelines using Prefect for orchestration, supporting both local and AWS cloud deployments with comprehensive error handling, caching, and monitoring capabilities.
+
+### Pipeline Architecture
+
+The data ingestion system consists of:
+- **AWS Pipeline** (`data_ingestion_aws.py`): Cloud-based ingestion with S3 storage and RDS
+- **Local Pipeline** (`data_ingestion_local.py`): Local development with file storage and PostgreSQL
+- **Backfill System** (`data_ingestion_backfills.py`): Historical data processing for multiple seasons
+
+### Prerequisites
+
+#### 1. Prefect Server Setup
+
+**Local Prefect Server:**
+```bash
+# Start local Prefect server (recommended for development)
+prefect server start
+```
+
+**Prefect Cloud:**
+```bash
+# Login to Prefect Cloud with API key (https://app.prefect.cloud/my/api-keys)
+prefect cloud login -k <your-api-key>
+```
+
+> [!NOTE]
+> **Understanding Deployment Types vs Data Storage**
+>
+> These are two independent architectural decisions:
+>
+> **1. Prefect Deployment Type** (How workflows execute):
+> - **Static**: Your local machine executes the workflow
+> - **Managed**: Prefect Cloud/Server executes the workflow on remote infrastructure
+>
+> **2. Data Storage Target** (Where data is stored):
+> - **Local**: PostgreSQL database + local file system
+> - **AWS**: RDS PostgreSQL + S3 buckets
+>
+> **Key Independence**:
+> - Static deployment + AWS storage = Your machine runs the workflow, data goes to S3/RDS
+> - Managed deployment + Local storage = Prefect Cloud runs the workflow, data goes to local DB/files
+> - Any combination is valid based on your infrastructure needs
+
+**Examples of Valid Combinations:**
+
+| Deployment Type | Data Storage | Use Case |
+|----------------|-------------|----------|
+| Static + Local | Your machine → Local DB/Files | Development & testing |
+| Static + AWS | Your machine → S3/RDS | Hybrid development |
+| Managed + Local | Prefect Cloud → Local DB/Files | Remote execution, local data |
+| Managed + AWS | Prefect Cloud → S3/RDS | Full cloud production |
+
+#### 2. Configuration Setup for AWS data ingestion (S3 + RDS)
+
+Configure Prefect variables and AWS credentials:
+```bash
+# Set up environment and credentials
+python pipelines/config.py \
+  --database-secrets "your-db-secret-name" \
+  --s3-data-bucket "your-s3-bucket-name" \
+  --aws-access-key "your-access-key" \
+  --aws-secret-key "your-secret-key" \
+  --aws-region "your-aws-region"
+```
+
+This script creates:
+- Prefect Variables for database secrets and S3 bucket names
+- AWS Credentials block for secure cloud access
+
+Another Options is to run
+```bash
+make prefect-config-vars
+```
+This will apply the basic terraform infra and creates prefect variables for `database secret name`, `s3 bucket used for data storage`. You still need to make the AWSCredentials bblock `manually` from the **UI**.
+
+#### 3. Configuration setup for Local data ingestion (Local file system + Postgres)
+
+For local pipeline deployment, create `.env` file in project root:
+```bash
+# Application settings
+APP_NAME=epl-predictions
+
+# Database configuration
+POSTGRES_USER=your_username
+POSTGRES_PASSWORD=your_password
+POSTGRES_SERVER=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=epl_predictions
+TABLE_NAME=english_league_data
+```
+
+The local pipeline reads configuration via `config/config.py` using Pydantic settings.
+
+### Deployment Strategies
+
+#### Static Serve Deployments (Local Development)
+
+**AWS Pipeline:**
+```bash
+python pipelines/data_ingestion/data_ingestion_aws.py --static
+```
+AWS based data ingestion uses the pre-configured prefect variables, and blocks. But the word [`static`](https://docs.prefect.io/v3/concepts/deployments#static-infrastructure) mentions that the [worker](https://docs.prefect.io/v3/concepts/workers) runs locally withot any [workpool](https://docs.prefect.io/v3/concepts/work-pools) needed.
+
+**Local Pipeline:**
+```bash
+python pipelines/data_ingestion/data_ingestion_local.py
+```
+Local based data ingestion uses the `.env` file to build the database URL by `config/config.py`, and saves the files locally on `data/raw/`
+
+Static deployments run locally and are ideal for:
+- Development and testing
+- Manual pipeline execution
+- Local debugging
+
+#### Managed Deployments (Production)
+
+Managed deployments leverage Prefect's infrastructure for production workloads:
+
+**AWS Pipeline:**
+```bash
+python pipelines/data_ingestion/data_ingestion_aws.py
+```
+
+This creates a managed deployment with:
+- Automatic scheduling (Saturdays at midnight during season)
+- Work pool integration (`epl-predictions-pool`)
+- Dependency management with specified pip packages
+- Concurrency limits and retry policies
+
+**Managed vs Static Comparison:**
+| Feature | Static Serve | Managed |
+|---------|-------------|---------|
+| Infrastructure | Local machine | Prefect Cloud/Server |
+| Scheduling | Manual execution | Automatic cron-based |
+| Scalability | Single instance | Auto-scaling workers |
+| Monitoring | Basic logging | Full observability |
+| Production Ready | Development only | Production deployment |
+
+### Pipeline Features
+
+#### Caching Strategy
+
+**Task-Level Caching:**
+```python
+# Input-based caching for data fetching
+@task(cache_policy=INPUTS, cache_expiration=timedelta(days=6))
+def get_season_results(season: str, division_code: str):
+    # Cached for 6 days based on input parameters
+
+# Run-based caching for database operations
+@task(cache_policy=RUN_ID, cache_expiration=timedelta(hours=1))
+def _get_database_url():
+    # Cached per pipeline run for 1 hour
+```
+
+**Benefits:**
+- Reduces API calls to football-data.co.uk
+- Improves pipeline performance on retries
+- Prevents redundant database credential fetches
+
+#### Error Handling & Retry Logic
+
+**Retry Configuration:**
+```python
+@task(
+    retries=3,
+    retry_condition_fn=retry_handler,
+    retry_delay_seconds=5
+)
+def get_season_results(season: str, division_code: str):
+    # Custom retry handler skips retries for 401/404 HTTP errors
+```
+
+**Smart Retry Logic:**
+- HTTP 401/404 errors: No retry (permanent failures)
+- Network timeouts: Automatic retry with exponential backoff
+- Database connection issues: Retry with delay
+
+#### Data Persistence
+
+**Result Persistence:**
+```python
+@task(persist_result=True, cache_expiration=timedelta(hours=6))
+def load_data_from_s3():
+    # Results persisted to Prefect's result storage
+```
+
+**Transaction Safety:**
+- Database operations use explicit transactions
+- Rollback on failure ensures data consistency
+- Delete-then-insert pattern prevents duplicates
+
+#### Logging & Monitoring
+
+**Structured Logging:**
+```python
+logger = get_run_logger()
+logger.info(f"Processing season {season} with {len(df)} matches")
+logger.error(f"Failed to fetch data: {str(e)}")
+```
+
+**Task Dependencies:**
+```python
+# Parallel execution with dependency management
+upload_future = upload_to_s3.submit(file_name, df)
+db_future = load_data_to_db.submit(df)
+wait([upload_future, db_future])
+```
+
+### Backfill Operations
+
+Execute historical data ingestion for multiple seasons:
+
+```bash
+python pipelines/data_ingestion/data_ingestion_backfills.py \
+  --flow-name "epl-data-ingestion-aws" \
+  --deployment-name "aws-dynamic-data-ingestion-pipeline" \
+  --start-year 2020 \
+  --end-year 2024
+```
+
+**Backfill Features:**
+- Season range specification (2000-2024 supported)
+- Automatic delay between runs to prevent rate limiting
+- Success/failure tracking with detailed reporting
+- Resume capability for interrupted operations
+
+**Example Output:**
+```
+📈 BACKFILL SUMMARY
+=====================================
+✅ Successful: 23/25 seasons
+❌ Failed: 2/25 seasons
+```
+
+### Pipeline Execution Examples
+
+**Single Season Ingestion:**
+```bash
+# Current season (auto-detected)
+prefect deployment run "epl-data-ingestion-aws/aws-dynamic-data-ingestion-pipeline"
+
+# Specific season
+prefect deployment run "epl-data-ingestion-aws/aws-dynamic-data-ingestion-pipeline" \
+  --param season="2425" --param division="E0"
+```
+
+**Local Development Testing:**
+```bash
+# Run local pipeline directly
+python -c "
+from pipelines.data_ingestion.data_ingestion_local import ingest_data
+ingest_data(season='2425', division='E0')
+"
+```
+
+### Monitoring & Observability
+
+**Flow Run Tracking:**
+- Real-time task status in Prefect UI
+- Execution logs with structured metadata
+- Performance metrics and timing data
+
+**Error Alerting:**
+- Failed runs trigger notifications
+- Retry attempts logged with failure reasons
+- Manual intervention points clearly identified
+
+**Data Quality Checks:**
+- Column validation against required schema
+- Empty DataFrame detection
+- Duplicate record prevention
+
+This pipeline architecture ensures reliable, scalable data ingestion suitable for both development workflows and production environments.
