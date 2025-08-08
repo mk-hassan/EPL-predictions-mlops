@@ -216,3 +216,6 @@ data/raw/*.parquet
 
 # vscode settings
 .vscode/*
+
+# dummy files
+.DS_Store

@@ -85,6 +85,9 @@ disable = [
     "unnecessary-pass",
     "no-else-break",
     "no-else-continue",
+    "redefined-outer-name",
+    "unused-argument",
+    "unused-variable",
     # Questionable things, but it's ok, I don't need to be told:
     "import-outside-toplevel",
     "self-assigning-variable",
@@ -96,6 +99,9 @@ disable = [
     "superfluous-parens",
     "wrong-import-position",
     "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "no-self-argument",
     # Messages that are noisy for now, eventually maybe we'll turn them on:
     "invalid-name",
     "protected-access",
@@ -203,3 +209,6 @@ annotated_tag = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
