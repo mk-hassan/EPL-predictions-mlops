@@ -23,12 +23,12 @@ class Config(BaseSettings):
     app_name: str = Field(..., description="Application name")
 
     # Database Settings
-    postgres_user: str = Field(..., description="PostgreSQL username", required=True)
-    postgres_password: str = Field(..., description="PostgreSQL password", required=True)
-    postgres_server: str = Field(..., description="PostgreSQL server host", required=True)
-    postgres_port: int = Field(default=5432, description="PostgreSQL port", required=True)
-    postgres_db: str = Field(..., description="PostgreSQL database name", required=True)
-    table_name: str = Field(..., description="Database table name", required=True)
+    postgres_user: str = Field(..., description="PostgreSQL username")
+    postgres_password: str = Field(..., description="PostgreSQL password")
+    postgres_server: str = Field(..., description="PostgreSQL server host")
+    postgres_port: int = Field(default=5432, description="PostgreSQL port")
+    postgres_db: str = Field(..., description="PostgreSQL database name")
+    table_name: str = Field(..., description="Database table name")
 
     # AWS Settings
     aws_region: str = Field(..., description="AWS region")

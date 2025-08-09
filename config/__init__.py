@@ -11,9 +11,10 @@ Usage:
     cols = params.required_columns
 """
 
-import yaml
-from pathlib import Path
 import logging
+from pathlib import Path
+
+import yaml
 
 from .config import get_config
 
@@ -35,7 +36,7 @@ class ConfigLoader:
     def load_yaml(file_path: Path) -> dict[str, any]:
         """Load a YAML file and return its contents."""
         try:
-            with open(file_path, encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 return yaml.safe_load(f)
         except FileNotFoundError:
             logger.error(f"Configuration file not found: {file_path}")
@@ -97,12 +98,12 @@ except Exception as e:
 # Convenience functions
 def get_required_columns() -> list:
     """Get list of required columns."""
-    return getattr(params, 'required_columns', [])
+    return getattr(params, "required_columns", [])
 
 
 def get_ml_features() -> dict[str, any]:
     """Get ML features configuration."""
-    return getattr(params, 'ml_features', {})
+    return getattr(params, "ml_features", {})
 
 
 # Public API
