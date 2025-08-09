@@ -65,7 +65,7 @@ During data collection from football-data.co.uk spanning 25+ seasons (2000-2025)
 
 ### Solution Approach
 
-**Data Discovery (`pipelines/data_discovery.py`)**:
+**Data Discovery (`pipelines/data_schema_analysis.py`)**:
 ```python
 # Pseudocode for column standardization
 common_columns = set(first_season_columns)
@@ -712,279 +712,24 @@ pgcli -h $(terraform output -raw database_endpoint) -U postgres_admin -d epl-pre
 CREATE DATABASE mlflow_tracking;
 ```
 
-## Data Ingestion Pipelines
+---
 
-This project implements robust data ingestion pipelines using Prefect for orchestration, supporting both local and AWS cloud deployments with comprehensive error handling, caching, and monitoring capabilities.
+## 🔄 Data Pipelines
 
-### Pipeline Architecture
+The project includes robust **data ingestion pipelines** built with Prefect for orchestration, supporting both local development and AWS cloud deployments.
 
-The data ingestion system consists of:
-- **AWS Pipeline** (`data_ingestion_aws.py`): Cloud-based ingestion with S3 storage and RDS
-- **Local Pipeline** (`data_ingestion_local.py`): Local development with file storage and PostgreSQL
-- **Backfill System** (`data_ingestion_backfills.py`): Historical data processing for multiple seasons
+**Key Features:**
+- **Automated data fetching** from football-data.co.uk
+- **Smart caching** and retry logic for reliability
+- **Fallback mechanisms** (AWS → Local database when needed)
+- **Historical backfill** capabilities for multiple seasons
+- **Transaction-safe** database operations
 
-### Prerequisites
+**Pipeline Types:**
+- **AWS Pipeline**: Cloud-based with S3 storage and RDS
+- **Local Pipeline**: Development-friendly with local PostgreSQL
+- **Backfill functionality**: Historical data processing
 
-#### 1. Prefect Server Setup
+For detailed setup instructions, configuration options, and execution commands, see the [**Pipelines Documentation**](./pipelines/README.md).
 
-**Local Prefect Server:**
-```bash
-# Start local Prefect server (recommended for development)
-prefect server start
-```
-
-**Prefect Cloud:**
-```bash
-# Login to Prefect Cloud with API key (https://app.prefect.cloud/my/api-keys)
-prefect cloud login -k <your-api-key>
-```
-
-> [!NOTE]
-> **Understanding Deployment Types vs Data Storage**
->
-> These are two independent architectural decisions:
->
-> **1. Prefect Deployment Type** (How workflows execute):
-> - **Static**: Your local machine executes the workflow
-> - **Managed**: Prefect Cloud/Server executes the workflow on remote infrastructure
->
-> **2. Data Storage Target** (Where data is stored):
-> - **Local**: PostgreSQL database + local file system
-> - **AWS**: RDS PostgreSQL + S3 buckets
->
-> **Key Independence**:
-> - Static deployment + AWS storage = Your machine runs the workflow, data goes to S3/RDS
-> - Managed deployment + Local storage = Prefect Cloud runs the workflow, data goes to local DB/files
-> - Any combination is valid based on your infrastructure needs
-
-**Examples of Valid Combinations:**
-
-| Deployment Type | Data Storage | Use Case |
-|----------------|-------------|----------|
-| Static + Local | Your machine → Local DB/Files | Development & testing |
-| Static + AWS | Your machine → S3/RDS | Hybrid development |
-| Managed + Local | Prefect Cloud → Local DB/Files | Remote execution, local data |
-| Managed + AWS | Prefect Cloud → S3/RDS | Full cloud production |
-
-#### 2. Configuration Setup for AWS data ingestion (S3 + RDS)
-
-Configure Prefect variables and AWS credentials:
-```bash
-# Set up environment and credentials
-python pipelines/config.py \
-  --database-secrets "your-db-secret-name" \
-  --s3-data-bucket "your-s3-bucket-name" \
-  --aws-access-key "your-access-key" \
-  --aws-secret-key "your-secret-key" \
-  --aws-region "your-aws-region"
-```
-
-This script creates:
-- Prefect Variables for database secrets and S3 bucket names
-- AWS Credentials block for secure cloud access
-
-Another Options is to run
-```bash
-make prefect-config-vars
-```
-This will apply the basic terraform infra and creates prefect variables for `database secret name`, `s3 bucket used for data storage`. You still need to make the AWSCredentials bblock `manually` from the **UI**.
-
-#### 3. Configuration setup for Local data ingestion (Local file system + Postgres)
-
-For local pipeline deployment, create `.env` file in project root:
-```bash
-# Application settings
-APP_NAME=epl-predictions
-
-# Database configuration
-POSTGRES_USER=your_username
-POSTGRES_PASSWORD=your_password
-POSTGRES_SERVER=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=epl_predictions
-TABLE_NAME=english_league_data
-```
-
-The local pipeline reads configuration via `config/config.py` using Pydantic settings.
-
-### Deployment Strategies
-
-#### Static Serve Deployments (Local Development)
-
-**AWS Pipeline:**
-```bash
-python pipelines/data_ingestion/data_ingestion_aws.py --static
-```
-AWS based data ingestion uses the pre-configured prefect variables, and blocks. But the word [`static`](https://docs.prefect.io/v3/concepts/deployments#static-infrastructure) mentions that the [worker](https://docs.prefect.io/v3/concepts/workers) runs locally withot any [workpool](https://docs.prefect.io/v3/concepts/work-pools) needed.
-
-**Local Pipeline:**
-```bash
-python pipelines/data_ingestion/data_ingestion_local.py
-```
-Local based data ingestion uses the `.env` file to build the database URL by `config/config.py`, and saves the files locally on `data/raw/`
-
-Static deployments run locally and are ideal for:
-- Development and testing
-- Manual pipeline execution
-- Local debugging
-
-#### Managed Deployments (Production)
-
-Managed deployments leverage Prefect's infrastructure for production workloads:
-
-**AWS Pipeline:**
-```bash
-python pipelines/data_ingestion/data_ingestion_aws.py
-```
-
-This creates a managed deployment with:
-- Automatic scheduling (Saturdays at midnight during season)
-- Work pool integration (`epl-predictions-pool`)
-- Dependency management with specified pip packages
-- Concurrency limits and retry policies
-
-**Managed vs Static Comparison:**
-| Feature | Static Serve | Managed |
-|---------|-------------|---------|
-| Infrastructure | Local machine | Prefect Cloud/Server |
-| Scheduling | Manual execution | Automatic cron-based |
-| Scalability | Single instance | Auto-scaling workers |
-| Monitoring | Basic logging | Full observability |
-| Production Ready | Development only | Production deployment |
-
-### Pipeline Features
-
-#### Caching Strategy
-
-**Task-Level Caching:**
-```python
-# Input-based caching for data fetching
-@task(cache_policy=INPUTS, cache_expiration=timedelta(days=6))
-def get_season_results(season: str, division_code: str):
-    # Cached for 6 days based on input parameters
-
-# Run-based caching for database operations
-@task(cache_policy=RUN_ID, cache_expiration=timedelta(hours=1))
-def _get_database_url():
-    # Cached per pipeline run for 1 hour
-```
-
-**Benefits:**
-- Reduces API calls to football-data.co.uk
-- Improves pipeline performance on retries
-- Prevents redundant database credential fetches
-
-#### Error Handling & Retry Logic
-
-**Retry Configuration:**
-```python
-@task(
-    retries=3,
-    retry_condition_fn=retry_handler,
-    retry_delay_seconds=5
-)
-def get_season_results(season: str, division_code: str):
-    # Custom retry handler skips retries for 401/404 HTTP errors
-```
-
-**Smart Retry Logic:**
-- HTTP 401/404 errors: No retry (permanent failures)
-- Network timeouts: Automatic retry with exponential backoff
-- Database connection issues: Retry with delay
-
-#### Data Persistence
-
-**Result Persistence:**
-```python
-@task(persist_result=True, cache_expiration=timedelta(hours=6))
-def load_data_from_s3():
-    # Results persisted to Prefect's result storage
-```
-
-**Transaction Safety:**
-- Database operations use explicit transactions
-- Rollback on failure ensures data consistency
-- Delete-then-insert pattern prevents duplicates
-
-#### Logging & Monitoring
-
-**Structured Logging:**
-```python
-logger = get_run_logger()
-logger.info(f"Processing season {season} with {len(df)} matches")
-logger.error(f"Failed to fetch data: {str(e)}")
-```
-
-**Task Dependencies:**
-```python
-# Parallel execution with dependency management
-upload_future = upload_to_s3.submit(file_name, df)
-db_future = load_data_to_db.submit(df)
-wait([upload_future, db_future])
-```
-
-### Backfill Operations
-
-Execute historical data ingestion for multiple seasons:
-
-```bash
-python pipelines/data_ingestion/data_ingestion_backfills.py \
-  --flow-name "epl-data-ingestion-aws" \
-  --deployment-name "aws-dynamic-data-ingestion-pipeline" \
-  --start-year 2020 \
-  --end-year 2024
-```
-
-**Backfill Features:**
-- Season range specification (2000-2024 supported)
-- Automatic delay between runs to prevent rate limiting
-- Success/failure tracking with detailed reporting
-- Resume capability for interrupted operations
-
-**Example Output:**
-```
-📈 BACKFILL SUMMARY
-=====================================
-✅ Successful: 23/25 seasons
-❌ Failed: 2/25 seasons
-```
-
-### Pipeline Execution Examples
-
-**Single Season Ingestion:**
-```bash
-# Current season (auto-detected)
-prefect deployment run "epl-data-ingestion-aws/aws-dynamic-data-ingestion-pipeline"
-
-# Specific season
-prefect deployment run "epl-data-ingestion-aws/aws-dynamic-data-ingestion-pipeline" \
-  --param season="2425" --param division="E0"
-```
-
-**Local Development Testing:**
-```bash
-# Run local pipeline directly
-python -c "
-from pipelines.data_ingestion.data_ingestion_local import ingest_data
-ingest_data(season='2425', division='E0')
-"
-```
-
-### Monitoring & Observability
-
-**Flow Run Tracking:**
-- Real-time task status in Prefect UI
-- Execution logs with structured metadata
-- Performance metrics and timing data
-
-**Error Alerting:**
-- Failed runs trigger notifications
-- Retry attempts logged with failure reasons
-- Manual intervention points clearly identified
-
-**Data Quality Checks:**
-- Column validation against required schema
-- Empty DataFrame detection
-- Duplicate record prevention
-
-This pipeline architecture ensures reliable, scalable data ingestion suitable for both development workflows and production environments.
+---
