@@ -31,7 +31,7 @@ requires-python = ">=3.9"
 
 ## PYLINT
 [tool.pylint]
-ignore = ["build", "dist"]
+ignore = ["build", "dist", "tests"]
 extension-pkg-whitelist = ["numpy", "pandas"]
 
 [tool.pylint.format]
@@ -61,6 +61,7 @@ max-public-methods = 500
 max-returns = 20
 max-statements = 150
 min-public-methods = 0
+max-positional-arguments = 20
 output-format = "colorized"
 
 [tool.pylint."messages control"]
@@ -151,6 +152,7 @@ exclude = [
     "node_modules",
     "site-packages",
     "venv",
+    "tests"
 ]
 
 # Same as Black.
