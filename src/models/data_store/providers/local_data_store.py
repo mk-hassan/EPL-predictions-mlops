@@ -22,6 +22,8 @@ class LocalDataStore(IDataStore):
             data = pd.read_csv(path)
         elif path.suffix == ".parquet":
             data = pd.read_parquet(path)
+        else:
+            raise ValueError(f"Unsupported file extension: {path.suffix}. Supported extensions are .csv and .parquet")
         return data
 
     def save_data(self, path: Path, data: pd.DataFrame) -> None:
