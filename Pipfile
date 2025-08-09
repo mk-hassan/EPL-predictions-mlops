@@ -19,7 +19,7 @@ psycopg-binary = "==3.2.9"
 requests = "==2.32.4"
 sqlalchemy = "==2.0.41"
 pydantic = "==2.11.7"
-prefect = {extras = ["aws"], version = "*"}
+prefect = {extras = ["aws"], version = "==3.4.11"}
 psycopg2-binary = "==2.9.9"
 catboost = "==1.2.8"
 fastapi = {extras = ["standard"], version = "==0.116.1"}

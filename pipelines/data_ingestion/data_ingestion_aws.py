@@ -176,9 +176,19 @@ if __name__ == "__main__":
             concurrency_limit=1,
             description="Football data ingestion pipeline for the English Premier League",
             tags=["data-ingestion", "epl-predictions"],
-            job_variables={"pip_packages": ["boto3==1.39.9", "pandas==2.3.1", "prefect-aws"]},
+            job_variables={
+                "pip_packages": [
+                    "prefect[aws]==3.4.11",
+                    "pandas==2.3.1",
+                    "requests==2.32.4",
+                    "sqlalchemy==2.0.41",
+                    "psycopg[binary,pool]==3.2.9",
+                    "boto3==1.39.9",
+                    "pydantic==2.11.7",
+                ]
+            },
             schedule={
-                "cron": "0 0 * 8-12,1-6 6",  # Every Saturday at 12:00 AM (midnight) from August to end of May
+                "cron": "0 0 * 8-12,1-6 6",
                 "timezone": "UTC",
             },
         )
