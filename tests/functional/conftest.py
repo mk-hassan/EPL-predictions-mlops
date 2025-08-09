@@ -1,4 +1,3 @@
-# tests/functional/conftest.py
 import json
 
 import boto3
