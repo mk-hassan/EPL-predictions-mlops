@@ -26,7 +26,7 @@ from sklearn.model_selection import train_test_split
 
 # Add project root to Python path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from pipelines.hooks import retry_handler
+from pipelines.utils.hooks import retry_handler
 
 
 @task(
@@ -379,7 +379,7 @@ def epl_training_pipeline():
 
         # Step 4: Train model
         training_future = train_catboost_model.submit(X_train, X_val, y_train, y_val, categorical_cols)
-        model, metrics, run_id = training_future.result()
+        model, metrics, run_id = training_future.result()  # disable pylint: disable=unused-variable
 
         # Step 5: Validate performance
         validation_future = validate_model_performance.submit(metrics)

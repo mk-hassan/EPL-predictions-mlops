@@ -14,3 +14,5 @@ def retry_handler(task, task_run, state) -> bool:  # disabled pylint: disable=un
         return False
     except Exception:
         return True
+
+    return False

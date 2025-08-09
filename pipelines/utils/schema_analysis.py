@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 response = requests.get("https://www.football-data.co.uk/mmz4281/2425/E0.csv", timeout=10)
 df = pd.read_csv(BytesIO(response.content))
-common_columns = set([col.strip().lower() for col in df.columns])
+common_columns = {col.strip().lower() for col in df.columns}
 
 for year in tqdm(range(2000, 2024)):
     try:

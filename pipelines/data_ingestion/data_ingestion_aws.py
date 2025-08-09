@@ -6,88 +6,34 @@ processes and stores it in AWS S3 and PostgreSQL database.
 
 Main Functions:
 - ingest_data(): Orchestrates the full pipeline
-- get_season_results(): Fetches and cleans match data
 - upload_to_s3(): Stores data as parquet in S3
-- load_data_to_db(): Loads data to PostgreSQL
+- _get_database_url(): Retrieves database connection from AWS Secrets Manager
 
 Usage:
     from pipelines.data_ingestion.data_ingestion_aws import ingest_data
     ingest_data(season="2425", division="E0")
+
+    # Run with arguments
+    python data_ingestion_aws.py --static
 """
 
-import sys
 import json
 from io import BytesIO
-from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import boto3
 import pandas as pd
-import requests
 from prefect import flow, task, get_run_logger
-from sqlalchemy import text, inspect, create_engine
 from prefect_aws import AwsSecret, AwsCredentials
+from prefect.states import StateType
 from prefect.futures import wait
 from prefect.variables import Variable
-from prefect.cache_policies import INPUTS, RUN_ID
+from prefect.cache_policies import RUN_ID
 
-# Add project root to Python path
-sys.path.insert(0, str(Path(__file__).parents[2]))
-from config import get_required_columns
-from pipelines.hooks import retry_handler
-from pipelines.helpers import parse_match_date
+from config import get_config
 from src.models.DivisionEnum import Division
 
-
-# helpers
-@task(retries=1, retry_delay_seconds=5)
-def _get_current_season() -> str:
-    """Determine current football season based on current date."""
-
-    current_date = datetime.now()
-    current_month = current_date.month
-    current_year = current_date.year
-
-    # Football season typically runs from August to May
-    # If current month is August or later, it's the start of a new season
-    # If current month is before August, it's still the previous season
-    if current_month >= 8:  # August onwards
-        season_start_year = current_year
-        season_end_year = current_year + 1
-    else:  # January to July
-        season_start_year = current_year - 1
-        season_end_year = current_year
-
-    # Format as "2425" style
-    season = f"{str(season_start_year)[-2:]}{str(season_end_year)[-2:]}"
-
-    logger = get_run_logger()
-    logger.info(f"Current season determined as: {season} ({season_start_year}/{season_end_year})")
-
-    return season
-
-
-@task(retries=1, retry_delay_seconds=5)
-def _clean_data(season: str, df: pd.DataFrame) -> pd.DataFrame:
-    """Snake casing column names, clean and format the date column in the DataFrame."""
-    if len(df) == 0:
-        raise ValueError("Received empty DataFrame, cannot clean data")
-
-    logger = get_run_logger()
-
-    df_cleaned = df.copy()  # Create a copy to avoid modifying original
-
-    df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(" ", "_")
-
-    df_cleaned["date"] = df_cleaned["date"].apply(parse_match_date)
-    df_cleaned = df_cleaned.dropna(subset=["date", "hometeam", "awayteam"])  # Drop rows with invalid dates
-
-    df_cleaned["season"] = season
-    df_cleaned = df_cleaned.drop_duplicates(subset=["date", "hometeam", "awayteam", "season", "div"])
-
-    logger.info(f"Cleaned data: {len(df_cleaned)} rows, {len(df_cleaned.columns)} columns")
-
-    return df_cleaned
+from .data_ingestion_common_tasks import ensure_division, load_data_to_db, get_current_season, get_season_results
 
 
 @task(
@@ -99,62 +45,30 @@ def _clean_data(season: str, df: pd.DataFrame) -> pd.DataFrame:
 )
 def _get_database_url() -> str:
     """Get the database URL from environment variables or configuration."""
+    logger = get_run_logger()
+
     secret_name = Variable.get("database-secrets")
     if not secret_name:
         raise ValueError("Database secrets not found in Prefect Variable 'database-secrets'")
 
-    aws_credentials_block = AwsCredentials.load("aws-prefect-client-credentials")
+    try:
+        aws_credentials_block = AwsCredentials.load("aws-prefect-client-credentials")
 
-    database_credentials = AwsSecret(
-        aws_credentials=aws_credentials_block,
-        secret_name=secret_name,
-    ).read_secret()
+        database_credentials = AwsSecret(
+            aws_credentials=aws_credentials_block,
+            secret_name=secret_name,
+        ).read_secret()
 
-    database_credentials = json.loads(database_credentials)
+        database_credentials = json.loads(database_credentials)
 
-    return (
-        f"postgresql+psycopg://{database_credentials['username']}:{database_credentials['password']}"
-        f"@{database_credentials['host']}:{database_credentials['port']}/{database_credentials['dbname']}"
-    )
-
-
-@task(
-    retries=3,
-    retry_condition_fn=retry_handler,
-    persist_result=True,
-    cache_policy=INPUTS,
-    cache_result_in_memory=False,
-    cache_expiration=timedelta(days=6),
-)
-def get_season_results(season: str, division_code: str) -> pd.DataFrame:
-    """Fetch football data for a specific season and division"""
-    logger = get_run_logger()
-
-    url = f"https://www.football-data.co.uk/mmz4281/{season}/{division_code}.csv"
-
-    logger.info(f"Fetching data from URL: {url}")
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-
-    if not response.content:
-        logger.error(f"Empty response received for season {season}, division {division_code}")
-        raise ValueError(f"No data available for season {season}, division {division_code}")
-
-    df = pd.read_csv(BytesIO(response.content))
-    cleaned_df = _clean_data(season, df)
-
-    required_columns = get_required_columns()
-
-    if not required_columns:
-        raise ValueError("No required columns found in configuration")
-
-    # raise if the columns are not present in the DataFrame
-    missing_columns = set(required_columns) - set(cleaned_df.columns)
-    if missing_columns:
-        logger.error(f"Missing required columns in DataFrame: {missing_columns}")
-        raise ValueError(f"Missing required columns in DataFrame: {missing_columns}")
-
-    return cleaned_df[required_columns]
+        return (
+            f"postgresql+psycopg://{database_credentials['username']}:{database_credentials['password']}"
+            f"@{database_credentials['host']}:{database_credentials['port']}/{database_credentials['dbname']}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to access AWS Secrets Manager for database URL: {str(e)[:100]}")
+        logger.warning("Failed to retrieve database URL from AWS Secrets Manager, using config instead")
+        return get_config().database_url
 
 
 @task(retries=3, retry_delay_seconds=5)
@@ -183,109 +97,9 @@ def upload_to_s3(file_name: str, df: pd.DataFrame) -> None:
 
     parquet_buffer = BytesIO()
     df.to_parquet(parquet_buffer, index=False)
-    s3_client.put_object(Bucket=data_bucket_name, Key=file_name, Body=parquet_buffer.getvalue())
+    s3_client.put_object(Bucket=data_bucket_name, Key=f"raw/{file_name}", Body=parquet_buffer.getvalue())
 
     logger.info(f"Data uploaded to S3 bucket '{data_bucket_name}' with file name '{file_name}'")
-
-
-@task(retries=3, retry_delay_seconds=5)
-def load_data_to_db(df: pd.DataFrame) -> None:
-    """Load DataFrame to PostgreSQL database using delete-then-insert by season."""
-    database_url = _get_database_url()
-    table_name = "english_league_data"
-    logger = get_run_logger()
-
-    if df.empty:
-        logger.info("No data to load - DataFrame is empty")
-        return
-
-    # Get the season from the DataFrame
-    if "season" not in df.columns:
-        logger.error("DataFrame must contain 'season' column")
-        raise ValueError("DataFrame must contain 'season' column")
-
-    seasons = df["season"].unique()
-    logger.info(f"Processing data for seasons: {list(seasons)}")
-
-    engine = create_engine(database_url)
-
-    with engine.connect() as connection:
-        # Check if table exists
-        inspector = inspect(engine)
-        table_exists = table_name in inspector.get_table_names()
-
-        if table_exists:
-            logger.info(f"Table '{table_name}' exists - deleting existing data for seasons: {list(seasons)}")
-
-            # Start transaction for delete operations
-            transaction = connection.begin()
-
-            try:
-                total_deleted = 0
-
-                # Delete existing data for each season
-                for season in seasons:
-                    delete_query = f"DELETE FROM {table_name} WHERE season = :season"
-                    result = connection.execute(text(delete_query), {"season": season})
-                    deleted_count = result.rowcount
-                    total_deleted += deleted_count
-                    logger.info(f"Deleted {deleted_count} existing rows for season {season}")
-
-                # Insert all new data
-                df.to_sql(
-                    table_name,
-                    con=connection,
-                    if_exists="append",
-                    index=False,
-                    method="multi",
-                )
-                inserted_count = len(df)
-
-                # Commit the transaction
-                transaction.commit()
-
-                logger.info(
-                    f"Data replacement completed: {total_deleted} rows deleted, {inserted_count} new rows inserted"
-                )
-
-            except Exception as e:
-                # Rollback the transaction on error
-                transaction.rollback()
-                logger.error("Error during data loading, transaction rolled back")
-                raise e
-        else:
-            logger.info(f"Table '{table_name}' does not exist - creating new table and inserting data")
-
-            df.to_sql(
-                table_name,
-                con=connection,
-                if_exists="replace",
-                index=False,
-                method="multi",
-            )
-            logger.info(f"Table '{table_name}' created and {len(df)} rows inserted")
-
-
-def _ensure_division(division: Division | str | None) -> Division:
-    logger = get_run_logger()
-
-    """Ensure division is a valid Division enum or string."""
-    if isinstance(division, str):
-        try:
-            return Division(division)
-        except ValueError as inner_error:
-            valid_values = [d.value for d in Division]
-            logger.error(f"Invalid division string: {division}. Must be one of: {valid_values}")
-            raise ValueError(f"Invalid division: '{division}'. Valid division values: {valid_values}") from inner_error
-    elif division is None:
-        logger.warning(f"Division not provided, defaulting to Premier League ({Division.PREMIER_LEAGUE.value})")
-        return Division.PREMIER_LEAGUE
-    elif not isinstance(division, Division):
-        logger.error(f"Invalid division type: {type(division)}. Expected Division enum or string.")
-        raise ValueError(
-            f"Invalid division type: {type(division)}. Expected Division enum or string, got {type(division)}."
-        )
-    return division
 
 
 @flow(
@@ -298,9 +112,9 @@ def _ensure_division(division: Division | str | None) -> Division:
 def ingest_data(season: str | None = None, division: Division | str | None = Division.PREMIER_LEAGUE) -> None:
     """Main function to fetch, process, and store football data."""
     if season is None:
-        season = _get_current_season()
+        season = get_current_season()
 
-    division = _ensure_division(division)
+    division = ensure_division(division)
 
     logger = get_run_logger()
     logger.info(f"Starting data ingestion pipeline for season: {season}, division: {division.value}")
@@ -318,10 +132,15 @@ def ingest_data(season: str | None = None, division: Division | str | None = Div
     upload_s3_future = upload_to_s3.submit(file_name, df)
 
     # Ensure table exists and load data to PostgreSQL
-    ingestion_future = load_data_to_db.submit(df)
+    database_url = _get_database_url.submit()
+    ingestion_future = load_data_to_db.submit(df, database_url.result())
 
     # Wait for all tasks to complete
-    wait([upload_s3_future, ingestion_future])
+    done, _ = wait([upload_s3_future, ingestion_future])
+    if any(result.state.type == StateType.FAILED for result in done):
+        logger.error("One or more tasks failed during data ingestion")
+        raise RuntimeError("Data ingestion pipeline failed")
+
     logger.info("Data ingestion pipeline completed successfully")
 
 

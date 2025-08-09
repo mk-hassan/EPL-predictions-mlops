@@ -1,4 +1,39 @@
+"""
+Backfill Data Ingestion Pipeline for EPL Predictions
+
+Executes data ingestion for multiple historical seasons in batch.
+Handles season range processing with error tracking and retry logic.
+
+Main Functions:
+- run_backfill_deployments(): Orchestrates batch season processing
+- generate_seasons(): Creates season strings for specified year range
+
+Features:
+- Automatic season string generation (2000 -> "0001", 2024 -> "2425")
+- Configurable delay between runs to prevent rate limiting
+- Comprehensive success/failure tracking and reporting
+- Resume capability for interrupted operations
+
+Usage:
+    # Run backfill for specific year range
+    python data_ingestion_backfills.py \
+        --flow-name "epl-data-ingestion-aws" \
+        --deployment-name "aws-dynamic-data-ingestion-pipeline" \
+        --start-year 2020 \
+        --end-year 2024
+
+    # Programmatic usage
+    from pipelines.data_ingestion.data_ingestion_backfills import run_backfill_deployments
+
+    successful, failed = run_backfill_deployments(
+        deployment_name="epl-data-ingestion-aws/aws-dynamic-data-ingestion-pipeline",
+        start_year=2020,
+        end_year=2024
+    )
+"""
+
 import time
+import argparse
 
 from prefect.deployments import run_deployment
 
@@ -19,7 +54,16 @@ def run_backfill_deployments(
     end_year: int = 2024,
     delay_seconds: int = 10,
 ):
-    """Run deployment for multiple seasons."""
+    """
+    Run deployment for multiple seasons.
+    Args:
+        deployment_name (str): Full deployment name (e.g., "epl-data-ingestion-aws/aws-dynamic-data-ingestion-pipeline")
+        start_year (int): Start year for backfill.
+        end_year (int): End year for backfill.
+        delay_seconds (int): Delay between runs to avoid rate limiting.
+    Returns:
+        tuple: (successful_runs, failed_runs) - Lists of successful and failed seasons.
+    """
     seasons = generate_seasons(start_year, end_year)
     total_seasons = len(seasons)
 
@@ -77,9 +121,6 @@ def run_backfill_deployments(
 
 
 if __name__ == "__main__":
-    # Option 1: Run all seasons from 2000 to 2024
-    import argparse
-
     parser = argparse.ArgumentParser(description="Run backfill deployments for multiple seasons")
     parser.add_argument("--flow-name", required=True, help="Flow name (e.g., 'data-ingestion')")
     parser.add_argument(
@@ -95,7 +136,7 @@ if __name__ == "__main__":
     # Construct full deployment name
     full_deployment_name = f"{args.flow_name}/{args.deployment_name}"
 
-    print(f"🎯 Using deployment: {full_deployment_name}")
+    print(f"Using deployment: {full_deployment_name}")
 
     successful, failed = run_backfill_deployments(
         deployment_name=full_deployment_name,

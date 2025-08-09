@@ -1,4 +1,5 @@
 import pandas as pd
+from pandas.errors import ParserError
 
 
 def parse_match_date(date_str):
@@ -22,11 +23,11 @@ def parse_match_date(date_str):
             if parsed_date.year < 1950:  # Assume it's 20xx, not 19xx
                 parsed_date = parsed_date.replace(year=parsed_date.year + 100)
             return parsed_date
-        except Exception:
+        except (ParserError, ValueError):
             continue
 
     # Fallback to pandas automatic parsing
     try:
         return pd.to_datetime(date_str, format="%Y/%m/%d", errors="coerce")
-    except Exception:
+    except (ParserError, ValueError):
         return pd.NaT
