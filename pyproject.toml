@@ -27,7 +27,43 @@ authors = [
 
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.9"
+requires-python = ">=3.11"
+dependencies = [
+    "mlflow==3.1.1",
+    "jupyter==1.1.1",
+    "scikit-learn==1.7.1",
+    "pandas==2.3.1",
+    "seaborn==0.13.2",
+    "hyperopt==0.2.7",
+    "xgboost==3.0.2",
+    "fastparquet==2024.11.0",
+    "boto3==1.39.9",
+    "evidently==0.7.10",
+    "psycopg==3.2.9",
+    "psycopg[binary]==3.2.9",
+    "psycopg2-binary==2.9.9",
+    "requests==2.32.4",
+    "sqlalchemy==2.0.41",
+    "pydantic==2.11.7",
+    "prefect[aws]==3.4.11",
+    "catboost==1.2.8",
+    "fastapi[standard]==0.116.1",
+    "uvicorn==0.35.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pylint==3.3.7",
+    "ruff==0.12.4",
+    "black==25.1.0",
+    "isort==6.0.1",
+    "pre-commit==4.2.0",
+    "bandit==1.8.6",
+    "commitizen==4.8.3",
+    "pytest==8.4.1",
+    "pytest-asyncio==1.1.0",
+    "testcontainers[localstack,postgresql]",
+]
 
 ## PYLINT
 [tool.pylint]
