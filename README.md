@@ -1,30 +1,128 @@
-# 🏆 EPL-Predictions: A Production-Ready Football Match Predictor
+# EPL-Predictions: A Production-Ready Football Match Predictor (MLOps)
 
-##  Overview
-This project is a **full-stack Machine Learning Operations (MLOps)** pipeline designed to predict outcomes of **English Premier League (EPL)** football matches. It uses historical and regularly updated match-level data, with a focus on engineering a system that automates **data ingestion**, **model training**, **model monitoring**, and **deployment**.
+🏆 **EPL-Predictions** is a machine learning pipeline built to forecast English Premier League (EPL) match outcomes.
 
-Rather than being a one-shot model, this project simulates a production environment where new match data is released **weekly or monthly**, and the system **retrains models**, **detects drift**, and **monitors performance** over time.
+Unlike one-off models, this system mirrors the behavior of a live production service. It ingests new data as it's published, retrains models on a schedule, monitors for drift, and adapts predictions over time.
 
+Data is sourced from [football-data.co.uk](https://www.football-data.co.uk/), a long-standing source of structured football statistics. It covers Premier League fixtures from the 1993–94 season to today, with updates published twice weekly. This project uses only top-tier matches (E0 league code).
 
-## Data Source
+<p align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Premier_League_Trophy_at_Manchester%27s_National_Football_Museum_%28Ank_Kumar%29_03.jpg/250px-Premier_League_Trophy_at_Manchester%27s_National_Football_Museum_%28Ank_Kumar%29_03.jpg" />
+</p>
 
-> [!TIP]
-> League Division refers to the specific league or division the match belongs to.
-This field helps identify which football competition the data is sourced from.
->
-> Common league codes in the dataset:\
-> **E0** → English Premier League (Top tier) [Only used]\
-> **E1** → English Championship (2nd tier)\
-> **E2** → English League One (3rd tier)\
-> **E3** → English League Two (4th tier)
->
-> ✅ In this project, we primarily focus on E0 (Premier League).
+Here’s a look at some practical use cases for the 🏆 **EPL-Predictions** module:
 
-Data relies on [`football-data.co.uk`](https://www.football-data.co.uk/) — a well-maintained, structured source of historical EPL results and stats provided in csv format.
+| Use Case               | Stakeholders            | Outcomes |
+| ---------------------- | ----------------------- | ------------------------------------------------ |
+| Fantasy Sports         | Users, Operators        | Real-time lineup advice, higher engagement       |
+| Broadcast & Media      | Producers, Commentators | Data-driven insights, better audience engagement |
+| Sports Analytics Firms | Analysts, Coaches       | Scalable modeling, actionable reports            |
 
-This dataset provides match-level statistics for Premier League fixtures spanning from at least the 1993/94 season up to the current season, updated twice weekly.
+This project is **production-ready**, built with full-stack MLOps tools and designed to meet the needs of real-world systems. It integrates with modern infrastructure, runs reliably at scale, and reflects the kind of architecture used in enterprise and research settings.
 
-### 🧩 Core Game Info
+This README outlines how to set up, deploy, and understand the system, with sections covering environment setup, infrastructure, pipelines, and other operational details.
+
+It includes:
+
+- A [Quickstart Guide](#quickstart-guide) for running the pipeline locally for testing, development, and experimentation.
+- The [Data Source and Data Pipelines](#data-source-and-data-pipelines) section, which explains where the data comes from, how it's structured, and how it's processed using automated pipelines.
+- The [Problem Type](#problem-type-multi-class-classification), [Classification Pipeline](#classification-pipeline-psuedocode), and [Technical Challenges](#technical-challenges) sections for understanding the modeling objective, how predictions are made, and the key engineering hurdles encountered during development.
+- A [Cloud Deployment Guide](#cloud-deployment-guide) for setting up and managing AWS infrastructure with Terraform and Prefect.
+- An [Infrastructure Overview](#infrastructure-overview), which details the architecture, IAM setup, monitoring layers, and security considerations.
+
+## Quickstart Guide
+
+To activate and install the dependencies for this project, follow these steps:
+    
+### 1. Set up your environment
+
+Open a terminal and navigate to the project directory:
+
+```bash
+cd /path/to/EPL-predictions
+```
+
+Activate and install dependencies using Pipenv. If you have the `uv` installer, it’s recommended for faster and more reliable dependency installation:
+
+```bash
+export PIPENV_INSTALLER=uv
+pipenv install
+# Or to install all dependencies including development tools:
+pipenv shell --dev
+```
+
+If you don’t have `uv`, Pipenv will fall back to `pip` automatically:
+
+```bash
+pipenv install
+```
+
+Activate the virtual environment:
+
+```bash
+pipenv shell
+```
+
+### 2. Initialize code quality checks (optional, but recommended)
+
+Set up automated pre-commit hooks to ensure consistent code style and catch issues early:
+
+- [x] Automatically runs code formatters (Black, isort, Ruff) on staged files before each commit.
+- [x] Runs linters (pylint) and security scanners (Bandit) to check code quality and security.
+- [x] Prevents commits if code does not meet quality or security standards.
+- [x] Helps maintain consistent code style and catch issues early.
+
+Install pre-commit and pre-commit hooks:
+
+```bash
+pipenv install --dev pre-commit
+pre-commit install
+```
+
+(Optional) Add additional hooks for commit messages and pre-push:
+
+```bash
+pre-commit install --hook-type commit-msg --hook-type pre-push
+```
+
+To verify installed hooks:
+
+```bash
+ls .git/hooks | grep -v '\.sample$'
+```
+
+You can manually run all hooks on all files with:
+```bash
+pre-commit run --all
+```
+
+## Data Source and Data Pipelines
+
+<p align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Ryan_Valentine_scores.jpg/330px-Ryan_Valentine_scores.jpg" />
+</p>
+
+### Data Source
+
+The data powering this project comes from [football-data.co.uk](https://www.football-data.co.uk/), a reliable and structured source of historical English football statistics provided in CSV format.
+
+#### League Division
+
+Matches are classified by league codes that indicate the competition level:
+
+* `E0` — English Premier League (top tier, **used exclusively in this project**)
+* `E1` — English Championship (2nd tier)
+* `E2` — English League One (3rd tier)
+* `E3` — English League Two (4th tier)
+
+This project focuses solely on Premier League fixtures (`E0`).
+
+#### Dataset Coverage
+
+The dataset spans from the 1993–94 season to the current season, with updates published twice weekly. It contains detailed match-level statistics, including results, team performance metrics, and betting odds where available.
+
+#### Core Match Information
+
 | Column          | Description                                            |
 | --------------- | ------------------------------------------------------ |
 | `Date`          | Match date (DD/MM/YY)                                  |
@@ -35,8 +133,9 @@ This dataset provides match-level statistics for Premier League fixtures spannin
 | `HTHG` / `HTAG` | Half-time home/away goals                              |
 | `HTR`           | Half-time result (H, D, A)                             |
 
-### 📊 Match Statistics (where available)
-|Column                 | Meaning                         |
+#### Match Statistics (where available)
+
+|Column                 | Description                         |
 | --------------------- | ------------------------------- |
 |`HS`, `AS`             | Shots by home / away teams      |
 | `HST`, `AST`          | Shots on target for home / away |
@@ -45,107 +144,59 @@ This dataset provides match-level statistics for Premier League fixtures spannin
 | `HY`, `AY`            | Yellow cards                    |
 | `HR`, `AR`            | Red cards                       |
 
+#### Betting Odds
 
-### 🎯 Betting Odds (if present)
-Depending on season file:
+Betting odds are included for many seasons and sourced from Bet365. Common fields include:
 
-B365H, B365D, B365A = Bet365 odds (home win, draw, away win)
+* B365H, B365D, B365A — Odds for home win, draw, and away win
+* Closing odds (B365CH, B365CD, B365CA) may also be available for later seasons
 
-May include closing odds (B365CH, B365CD, B365CA) for later seasons
+### Data Pipelines
 
+The project includes robust data ingestion pipelines built with Prefect for orchestration, supporting both local development and AWS cloud deployments.
 
-## 🚧 Data Challenges & Solutions
+Key Features:
+- Automated data fetching from football-data.co.uk
+- Smart caching and retry logic for reliability
+- Fallback mechanisms (AWS → Local database when needed)
+- Historical backfill capabilities for multiple seasons
+- Transaction-safe database operations
 
-### Challenges Faced
-During data collection from football-data.co.uk spanning 25+ seasons (2000-2025), several issues emerged:
+Pipeline Types:
+- AWS Pipeline: Cloud-based with S3 storage and RDS
+- Local Pipeline: Development-friendly with local PostgreSQL
+- Backfill functionality: Historical data processing
 
-1. **📅 Inconsistent Date Formats**: Different seasons used varying date formats (`DD/MM/YY`, `DD/MM/YYYY`, `YYYY-MM-DD`)
-2. **💾 Corrupted Files**: Some season files were incomplete or had encoding issues
-3. **📊 Non-Deterministic Columns**: Column availability varied significantly across seasons
-
-### Solution Approach
-
-**Data Discovery (`pipelines/data_schema_analysis.py`)**:
-```python
-# Pseudocode for column standardization
-common_columns = set(first_season_columns)
-for season in range(2000, 2025):
-    try:
-        df = fetch_season_data(season)
-        common_columns = common_columns ∩ df.columns  # Intersection
-    except CorruptedFileError:
-        skip_season(season)
-
-# Result: Only columns present in ALL seasons
-final_columns = common_columns  # 27 reliable columns
-```
-
-**Required Columns Found** (`config/params.yaml`):
-After analysis, these **27 columns** are consistently available across all seasons:
-```yaml
-required_columns:
-  # Match identifiers: div, date, hometeam, awayteam, referee
-  # Results: fthg, ftag, ftr, hthg, htag, htr
-  # Statistics: hs, as, hst, ast, hc, ac, hf, af, hy, ay, hr, ar
-  # Odds: whh, whd, wha
-  # Derived: season
-```
-
-**Date Parsing (`pipelines/helpers.py`)**:
-```python
-def parse_match_date(date_str):
-    formats = ["%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d", "%d-%m-%Y"]
-
-    for format in formats:
-        try:
-            parsed_date = pd.to_datetime(date_str, format=format)
-            if parsed_date.year < 1950:  # Fix 2-digit year ambiguity
-                parsed_date += 100_years
-            return parsed_date
-        except:
-            continue
-
-    return pd.NaT  # Failed to parse
-```
-
-**Result**: Robust data pipeline handling 25+ seasons with consistent schema and reliable date parsing.
-
----
-
-##  Technologies Used
-| Purpose             | Tools / Stack                                         |
-| ------------------- | ------------------------------------------------------|
-| Language            | Python 3.11                                           |
-| Orchestration       | Prefect                                               |
-| Monitoring          | Grafana, Loki, Mimir, Tempo, Evidently                |
-| Infrastructure      | Terraform                                             |
-| Deployment          | Docker, AWS (ECS, S3, RDS, VPC, Secrets Manager, IAM) |
-| Experiment Tracking | MLflow                                                |
-| Linting             | pylint, Ruff, Black, isort, bandit, pre-commit        |
-| Development Tools   | Commitizen, MakeFile                                  |
-| Testing             | pytest, TestContainer                                 |
-| CI/CD               | GitHub Actions                                        |
-|
-
+For detailed setup instructions, configuration options, and execution commands, see the [Pipelines Documentation](./pipelines/README.md).
 
 ## Problem Type: Multi-Class Classification
 
 ### Primary Task: Match Outcome Prediction
-- **Target Variable:** full_time_result
-- **Classes:**
-  - 0 = Away Win (A)
-  - 1 = Draw (D)
-  - 2 = Home Win (H)
 
-### What the App Solves:
-**Given two team names, predict the most likely match outcome**
+The classification task predicts the final match result (`full_time_result`) based on structured match data.
 
-Input:
+Target Variable: `full_time_result`
+Classes:
+
+  * `0` → Away Win (A)
+  * `1` → Draw (D)
+  * `2` → Home Win (H)
+
+### What the App Solves
+
+
+
+Given two teams, the model forecasts the likely outcome using engineered features and historical performance data.
+
+Example Input:
+
 ```
 Home Team: Manchester City
 Away Team: Liverpool
 ```
-Output:
+
+Example Output:
+
 ```
 Prediction: Home Win (H)
 Confidence:
@@ -153,7 +204,8 @@ Confidence:
 - Draw: 30%
 - Away Win: 25%
 ```
-### Classification Pipeline (Psudo)
+
+## Classification Pipeline (Psuedocode)
 
 ```python
 def predict_match_outcome(home_team, away_team):
@@ -178,90 +230,295 @@ def predict_match_outcome(home_team, away_team):
     }
 ```
 
-## Setting Up the Environment
+## Technical Challenges
 
-To activate and install the dependencies for this project, follow these steps:
+While collecting match-level data from [football-data.co.uk](https://www.football-data.co.uk/) across more than 25 seasons (2000–2025), several reliability and formatting issues emerged:
 
-1. **Activate Pipenv Shell**
-   Open your terminal and navigate to the project directory:
-   ```bash
-   > cd /path/to/EPL-predictions
-   ```
+1. Inconsistent Date Formats – Seasons used different formats such as `DD/MM/YY`, `DD/MM/YYYY`, and `YYYY-MM-DD`.
+2. Corrupted Files – Some CSVs were incomplete, improperly encoded, or failed to load.
+3. Non-Deterministic Columns – Column names and availability varied significantly from season to season.
 
-2. **Install Dependencies Using uv (Recommended)**
-   If you have `uv` installed, set the environment variable and run:
-   ```bash
-   > export PIPENV_INSTALLER=uv
-   > pipenv install
-    # or install all including dev dependancies
-   > pipenv shell --dev
-   ```
-   This will use `uv` for faster and more reliable dependency installation.
+### Standardization and Schema Design
 
-3. **If uv Is Not Found**
-   If you do not have `uv` installed, Pipenv will fall back to using `pip`.
-   You can install dependencies normally:
-   ```bash
-   > pipenv install
-   ```
+To address these inconsistencies, the project includes a discovery process (`pipelines/data_schema_analysis.py`) that scans all available season files and identifies only those columns that appear reliably across every year.
 
-4. **Activate the Virtual Environment**
-   After installation, activate the environment:
-   ```bash
-   > pipenv shell
-   ```
+```python
+# Pseudocode for column standardization
+common_columns = set(first_season_columns)
+for season in range(2000, 2025):
+    try:
+        df = fetch_season_data(season)
+        common_columns = common_columns ∩ df.columns  # Intersection
+    except CorruptedFileError:
+        skip_season(season)
 
-This will set up all required packages as specified in the `Pipfile` and locking the dependancies on `Pipfile.lock`.
-
----
-
-## Initializing Pre-commit Hooks
-
-To enable automated code quality and security checks before each commit, initialize pre-commit in your project:
-
-### Setup Tasks
-
-- **Install pre-commit (if not already installed [dev dependancies]):**
-  ```bash
-  pipenv install --dev pre-commit
-  ```
-
-- **Install the pre-commit hooks:**
-  ```bash
-  pre-commit install
-  ```
-
-- **(Optional) Install commit-msg and other hook types:**
-  ```bash
-  pre-commit install --hook-type commit-msg --hook-type pre-push
-  ```
-
-To list all created hooks
-```bash
-ls .git/hooks | grep -v '\.sample$'
+# Result: Only columns present in ALL seasons
+final_columns = common_columns  # 27 reliable columns
 ```
 
----
+The resulting list of 27 required columns is stored in `config/params.yaml` and includes identifiers, results, team stats, betting odds, and derived fields.
 
-### What pre-commit will do
-
-- [x] Automatically runs code formatters (Black, isort, Ruff) on staged files before each commit.
-- [x] Runs linters (pylint) and security scanners (Bandit) to check code quality and security.
-- [x] Prevents commits if code does not meet quality or security standards.
-- [x] Helps maintain consistent code style and catch issues early.
-
-You can manually run all hooks on all files with:
-```bash
-pre-commit run --all
+```yaml
+required_columns:
+  # Match identifiers: div, date, hometeam, awayteam, referee
+  # Results: fthg, ftag, ftr, hthg, htag, htr
+  # Statistics: hs, as, hst, ast, hc, ac, hf, af, hy, ay, hr, ar
+  # Odds: whh, whd, wha
+  # Derived: season
 ```
+
+### Date Normalization
+
+Date formats are normalized using helper logic in `pipelines/helpers.py`, which attempts multiple known formats and resolves ambiguity in 2-digit year representations.
+
+```python
+def parse_match_date(date_str):
+    formats = ["%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d", "%d-%m-%Y"]
+
+    for format in formats:
+        try:
+            parsed_date = pd.to_datetime(date_str, format=format)
+            if parsed_date.year < 1950:  # Fix 2-digit year ambiguity
+                parsed_date += 100_years
+            return parsed_date
+        except:
+            continue
+
+    return pd.NaT  # Failed to parse
+```
+
+## Cloud Deployment Guide
+
+- [Environment Prerequisites](#environment-prerequisites)
+  - [AWS CLI](#aws-cli)
+  - [Terraform](#terraform)
+  - [PostgreSQL Client](#postgresql-client)
+  - [S3 Bucket for Terraform State](#s3-bucket-for-terraform-state)
+- [Implementation Steps](#implementation-steps)
+  - [1. Initialize Terraform](#1-initialize-terraform)
+  - [2. Staged Deployment (Optional)](#2-staged-deployment-optional)
+  - [3. Complete Deployment](#3-complete-deployment)
+- [Useful Outputs](#useful-outputs)
+- [Troubleshooting](#troubleshooting)
+  - [Issue 1: Secrets Manager Conflict](#issue-1-secrets-manager-conflict)
+  - [Issue 2: Database Initialization Delay](#issue-2-database-initialization-delay)
+
+### Environment Prerequisites
+
+Before deploying infrastructure or running the application, ensure the following tools are installed and configured on your local machine.
+
+#### AWS CLI
+
+Install the AWS CLI for your operating system by following [the official instructions](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions).
+
+For macOS:
+
+```bash
+brew install awscli
+```
+
+Once installed, configure your AWS credentials:
+
+```bash
+aws configure
+```
+
+This command sets up two files in `~/.aws/`:
+
+* `credentials`: Stores your access key and secret
+* `config`: Defines your default region (e.g., `eu-south-1`)
+
+Make sure the IAM user you're using has permissions for:
+
+* EC2
+* S3
+* RDS
+* Secrets Manager
+* CloudWatch
+
+> ⚠️ Best practice: Avoid hardcoding credentials in your Terraform code. Use environment-based configuration instead.
+
+#### Terraform
+
+Install Terraform via [official instructions](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli#install-terraform).
+
+For macOS:
+
+```bash
+brew install terraform
+```
+
+Verify installation:
+
+```bash
+terraform version
+```
+
+#### PostgreSQL Client
+
+Install the PostgreSQL client tools. These are required primarily to check database readiness via `pg_isready`.
+
+For macOS:
+
+```bash
+brew install postgresql
+```
+
+Verify the CLI tools:
+
+```bash
+pg_isready --version
+```
+
+#### S3 Bucket for Terraform State
+
+Create an S3 bucket that will hold the remote Terraform state. In this example, we use:
+
+```
+epl-predictor-tf-state
+```
+
+If you use a different name, be sure to update the `terraform/backend.tf` file accordingly:
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket = "your-custom-bucket-name"
+    ...
+  }
+}
+```
+
+This ensures that Terraform stores your infrastructure state remotely and can support team collaboration.
+
+### Implementation Steps
+
+#### 1. Initialize Terraform
+
+Navigate to the `terraform/` directory and initialize the working directory. This sets up the backend and validates the configuration:
+
+```bash
+cd terraform
+terraform init && terraform validate
+```
+
+#### 2. Staged Deployment (Optional)
+
+To begin with core services—such as S3 for storage and RDS for local MLflow testing—you can deploy only a subset of resources:
+
+```bash
+terraform apply -auto-approve \
+  -target=aws_s3_bucket.mlflow_artifacts \
+  -target=aws_s3_bucket.data_storage \
+  -target=aws_db_instance.postgres \
+  -target=aws_secretsmanager_secret_version.db_credentials \
+  -target=postgresql_database.mlflow_db
+```
+
+This is useful for early-stage development or running services locally without deploying the full application stack.
+
+##### Optional: Using the Makefile
+
+Common Terraform commands are wrapped in a Makefile for convenience. For example, to deploy base resources:
+
+```bash
+make apply-base-infra
+```
+
+#### 3. Complete Deployment
+
+Once you're ready to deploy the complete infrastructure, run:
+
+```bash
+terraform apply
+```
+
+This will apply all modules and provision the entire production-ready environment.
+
+### Useful Outputs
+
+To access useful outputs like the MLflow tracking URI, use:
+
+```bash
+terraform output -raw get_mlflow_database_uri
+```
+
+For a full list of available outputs, refer to `terraform/output.tf` or run:
+
+```bash
+terraform output
+```
+
+Use the `-raw` flag when retrieving sensitive strings such as secrets or database URIs.
+
+### Troubleshooting
+
+#### Issue 1: Secrets Manager Conflict
+
+When deleting AWS Secrets Manager secrets, you may see this error:
+
+```bash
+Error: Secret with this name is already scheduled for deletion
+```
+
+This happens because secrets are not removed immediately but after a waiting period (up to 30 days).
+
+To view all secrets—including those pending deletion—run:
+
+```bash
+aws secretsmanager list-secrets --include-planned-deletion
+```
+
+**Solution:**
+Add a random suffix to secret names to avoid conflicts and disable recovery for immediate deletion:
+
+```hcl
+resource "random_id" "secret_suffix" {
+  byte_length = 4
+}
+
+resource "aws_secretsmanager_secret" "db_credentials" {
+  name                     = "${local.project_name}-db-credentials-${random_id.secret_suffix.hex}"
+  # ...
+  recovery_window_in_days   = 0  # disables recovery, allows immediate deletion
+}
+```
+
+#### Issue 2: Database Initialization Delay
+
+If you encounter this error during deployment:
+
+```bash
+Error: PostgreSQL server not ready
+```
+
+It means the database is still being created.
+
+**Solution:**
+
+Wait 5–10 minutes for the RDS instance to be ready, then manually create the required database:
+
+```bash
+pgcli -h $(terraform output -raw database_endpoint) -U postgres_admin -d epl-predictions
+
+CREATE DATABASE mlflow_tracking;
+```
+
+Using `null_resource.wait_for_db` in Terraform can help automate this wait step.
 
 ## Infrastructure Overview
 
-This section provides a comprehensive overview of the Terraform-managed infrastructure for the EPL Predictions project, emphasizing architectural decisions, best practices, and organizational patterns.
+- [Infrastructure Architecture](#infrastructure-architecture)
+- [File Organization and Structure](#file-organization-and-structure)
+- [Infrastructure Components](#infrastructure-components)
+- [IAM Roles and Policies](#iam-roles-and-policies)
+- [Security Features](#security-features)
+- [Monitoring and Observability](#monitoring--observability)
+- [Advanced Terraform Techniques](#advanced-terraform-techniques)
 
----
+### Infrastructure Architecture
 
-### 1. Infrastructure Architecture
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        AWS Cloud Environment                    │
@@ -298,107 +555,57 @@ This section provides a comprehensive overview of the Terraform-managed infrastr
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. File Organization & Structure
-The infrastructure follows a modular single-directory approach with clear separation of concerns:
+### File Organization and Structure
 
-```bash
+The Terraform project follows a modular, single-directory layout with separation of concerns:
+
+```
 terraform/
 ├── backend.tf
 ├── main.tf
 ├── monitoring.tf
 ├── outputs.tf
 ├── providers.tf
-├── scripts
-│   ├── database_check.sh
-│   └── user_data.sh
+├── scripts/
+│   ├── database_check.sh
+│   └── user_data.sh
 └── terraform.tf
 ```
 
-### 3. Required Tools Installation
-**AWS CLI:**
-[Install awscli depending on the OS](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions)
-```bash
-# Install AWS CLI for macos
-brew install awscli
+### Infrastructure Components
 
-# Configure AWS credentials
-aws configure
-```
+#### Compute
 
-**Terraform:**
-[Install terraform depending on the OS](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli#install-terraform)
-```bash
-# macOS installation
-brew install terraform
+EC2 Instance:
 
-# Verify installation
-terraform version
-```
+* `t3.micro` Ubuntu server for application hosting
+* SSH Key Pair for secure remote access
+* Security Group allowing SSH and HTTP traffic
+* IAM Role for accessing other AWS services
 
-**configure aws credentiales:**
+#### Storage
 
-- `aws config` stores the credentials into 2 files at `$HOME/.aws/credentiales` and `$HOME/.aws/config`
-- aws cofig asks you to enter `USER` credentials besides the region to use by default, I used `eu-south-1` as it the nearest for me but you should use the appropriate region nearest to your location.
-- `USER` should have access to EC2, S3, RDS, Cloud watch, Secrets manager
+S3 Buckets:
 
-> [!NOTE]
-> specifying the credentials within the aws provider block is highly discourged and not best practice. So the credentials must be specified within the bese class
->
-> ```bash
-> provider "aws" {
->   region     = "eu-south-1"
-> }
-> ```
->
-> If the region not sepecified the default will be used from `HOME/.aws/config`
+* `mlflow_artifacts`: For experiment tracking data
+* `data_storage`: For project dataset storage
 
-**PostgreSQL Client:**
-[Install postgres client depending on the OS](https://www.postgresql.org/download/)
-```bash
-# Install PostgreSQL client tools, needed just pg_isready tool to test connectivity (See null_resource.wait_for_db)
-brew install postgresql
+RDS PostgreSQL:
 
-# Verify pg_isready command
-# used for checking database health
-pg_isready --version
-```
+* Managed instance
+* Multi-database setup (e.g., `mlflow_tracking`, `epl_data`)
+* Encrypted and password-protected
 
-**Manually created S3 bucket** \
-This bucket will be used to store the terraform infrastructure state.\I named the bucket as `epl-predictor-tf-state` so I will continue with this name.
+#### Networking
 
-if you named your bucket another name, please update `terraform/backend.tf` with the bucket name
-```bash
-terraform {
-  backend "s3" {
-    bucket  = # bucket name
-    ...
-  }
-}
-```
----
+* Uses Default VPC
+* Subnet Group for RDS (multi-AZ deployment)
+* Security Groups to isolate EC2 and RDS access
 
-### 4. Infrastructure Components
+### IAM Roles and Policies
 
-#### Core Resources
+#### EC2 IAM Role
 
-**Compute**:
-**EC2 Instance:**
-- t3.micro Ubuntu server for application hosting
-- Key Pair: SSH access key for secure connection
-- Security Group: Controls inbound/outbound traffic (SSH, HTTP, custom ports)
-
-**Storage**:
-- **S3 Buckets**: Separate buckets for MLflow artifacts and data storage
-- **RDS PostgreSQL**: Managed database with multiple logical databases (MLFlow experiment tracking, actual app data as `Data warehouse`)
-
-**Networking**:
-- **Default VPC:** Leverages existing AWS VPC infrastructure
-- **DB Subnet Group**: Multi-AZ database placement
-- **Security Groups**: Network access control between resources
-
-
-#### IAM Roles & Policies
-**EC2 Instance Role:**
 Permissions:
 - S3: Read/Write access to project buckets
 - Secrets Manager: Retrieve database credentials
@@ -489,7 +696,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 - **Resource-Specific**: Policies target specific buckets and secrets
 - **No Wildcard Access**: Explicit resource ARNs used
 
-#### Security Aspects
+### Security Aspects
 
 **Credential Management:**
 - Database passwords stored in AWS Secrets Manager
@@ -513,10 +720,10 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 - Security group rules limit port access
 - Database connections require SSL/TLS
 
----
+### Monitoring & Observability
 
-#### Monitoring & Observability
 **CloudWatch** Integration
+
 **Log Groups:**
 - EC2 system logs with 7-day retention
 - Application logs with 14-day retention
@@ -535,11 +742,11 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 - SNS topic for alert delivery
 - Email subscription for alarm notifications
 
----
 
-#### Advanced Terraform Techniques
+### Advanced Terraform Techniques
 
-##### State Management
+#### State Management
+
 ```bash
 # Remote state storage on S3
 backend "s3" {
@@ -550,7 +757,8 @@ backend "s3" {
 }
 ```
 
-##### Provider Configuration
+#### Provider Configuration
+
 ```bash
 # Multi-provider setup
 provider "aws" {
@@ -574,7 +782,8 @@ provider "postgresql" {
 }
 ```
 
-##### Null Resource Tricks
+#### Null Resource Tricks
+
 **Database Readiness Check:**
 
 - Uses pg_isready command to verify RDS availability
@@ -619,7 +828,8 @@ resource "random_id" "secret_suffix" {
 }
 ```
 
-##### Local Values & Data Sources
+#### Local Values & Data Sources
+
 ```bash
 # Centralized project naming
 locals {
@@ -632,104 +842,3 @@ data "aws_vpc" "default" {
   default = true
 }
 ```
----
-
-#### Deployment Commands
-##### Initialization
-```bash
-cd terraform
-# Init terraform state
-terraform init && terraform validate
-```
-
-##### Staged Deployment (to start with local testing and ML tracking)
-```bash
-# Apply the base resources
-terraform apply -auto-approve \
-		-target=aws_s3_bucket.mlflow_artifacts \
-		-target=aws_s3_bucket.data_storage \
-		-target=aws_db_instance.postgres \
-		-target=aws_secretsmanager_secret_version.db_credentials \
-		-target=postgresql_database.mlflow_db
-```
-
-**OR** you can simply use `MakeFile`
-```bash
-make apply-base-infra
-```
-
-##### Complete Deployment
-```bash
-terraform apply
-```
-
-#### Useful outputs
-```bash
-# mlflow server backend-uri
-terraform output -raw get_mlflow_database_uri
-```
-> [!NOTE]
-> For complete List of outputs lookat `terraform/output.tf` \
-> Use `terraform output <output-name>` and use option `-raw` for **sensitive** outputs
-
-#### Troubleshooting
-##### Issue 1: Secrets Manager Conflict
-```bash
-# aws secrets manager doesn't remove the keys directly but waiting up to 30 days
-Error: Secret with this name is already scheduled for deletion
-```
-
-You can run this command to check all available secrets even the scheduled for deletion ones
-```bash
-aws secretsmanager list-secrets --include-planned-deletion
-```
-
-**Solution**: Random suffix prevents conflicts
-```bash
-resource "random_id" "secret_suffix" {
-   byte_length = 4
-}
-
-resource "aws_secretsmanager_secret" "db_credentials" {
-   name        = "${local.project_name}-db-credentials-${random_id.secret_suffix.hex}"
-   ...
-   # Disable recovery to allow immediate deletion
-   recovery_window_in_days = 0
-}
-```
-
-##### Issue 2: Database under creation
-This issue should be resolved by using the null_resource.wait_for_db
-```bash
-Error: PostgreSQL server not ready
-```
-
-Solution: Manually create mlflow_tracking database, in case this problem appeared again
-```bash
-# Wait for RDS (5-10 minutes), then:
-pgcli -h $(terraform output -raw database_endpoint) -U postgres_admin -d epl-predictions
-
-CREATE DATABASE mlflow_tracking;
-```
-
----
-
-## 🔄 Data Pipelines
-
-The project includes robust **data ingestion pipelines** built with Prefect for orchestration, supporting both local development and AWS cloud deployments.
-
-**Key Features:**
-- **Automated data fetching** from football-data.co.uk
-- **Smart caching** and retry logic for reliability
-- **Fallback mechanisms** (AWS → Local database when needed)
-- **Historical backfill** capabilities for multiple seasons
-- **Transaction-safe** database operations
-
-**Pipeline Types:**
-- **AWS Pipeline**: Cloud-based with S3 storage and RDS
-- **Local Pipeline**: Development-friendly with local PostgreSQL
-- **Backfill functionality**: Historical data processing
-
-For detailed setup instructions, configuration options, and execution commands, see the [**Pipelines Documentation**](./pipelines/README.md).
-
----
