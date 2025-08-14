@@ -1,6 +1,6 @@
-# 🏆 EPL-Predictions: A Production-Ready Football Match Predictor
+# EPL-Predictions: A Production-Ready Football Match Predictor
 
-##  Overview
+## Overview
 This project is a **full-stack Machine Learning Operations (MLOps)** pipeline designed to predict outcomes of **English Premier League (EPL)** football matches. It uses historical and regularly updated match-level data, with a focus on engineering a system that automates **data ingestion**, **model training**, **model monitoring**, and **deployment**.
 
 Rather than being a one-shot model, this project simulates a production environment where new match data is released **weekly or monthly**, and the system **retrains models**, **detects drift**, and **monitors performance** over time.
@@ -12,19 +12,19 @@ Rather than being a one-shot model, this project simulates a production environm
 > League Division refers to the specific league or division the match belongs to.
 This field helps identify which football competition the data is sourced from.
 >
-> Common league codes in the dataset:\
-> **E0** → English Premier League (Top tier) [Only used]\
-> **E1** → English Championship (2nd tier)\
-> **E2** → English League One (3rd tier)\
-> **E3** → English League Two (4th tier)
->
-> ✅ In this project, we primarily focus on E0 (Premier League).
+> Common league codes in the dataset:
+**E0** → English Premier League (Top tier) [Only used]
+**E1** → English Championship (2nd tier)
+**E2** → English League One (3rd tier)
+**E3** → English League Two (4th tier)
+
+In this project, we primarily focus on E0 (Premier League).
 
 Data relies on [`football-data.co.uk`](https://www.football-data.co.uk/) — a well-maintained, structured source of historical EPL results and stats provided in csv format.
 
 This dataset provides match-level statistics for Premier League fixtures spanning from at least the 1993/94 season up to the current season, updated twice weekly.
 
-### 🧩 Core Game Info
+### Core Game Info
 | Column          | Description                                            |
 | --------------- | ------------------------------------------------------ |
 | `Date`          | Match date (DD/MM/YY)                                  |
@@ -35,7 +35,7 @@ This dataset provides match-level statistics for Premier League fixtures spannin
 | `HTHG` / `HTAG` | Half-time home/away goals                              |
 | `HTR`           | Half-time result (H, D, A)                             |
 
-### 📊 Match Statistics (where available)
+### Match Statistics (where available)
 |Column                 | Meaning                         |
 | --------------------- | ------------------------------- |
 |`HS`, `AS`             | Shots by home / away teams      |
@@ -46,7 +46,7 @@ This dataset provides match-level statistics for Premier League fixtures spannin
 | `HR`, `AR`            | Red cards                       |
 
 
-### 🎯 Betting Odds (if present)
+### Betting Odds (if present)
 Depending on season file:
 
 B365H, B365D, B365A = Bet365 odds (home win, draw, away win)
@@ -54,14 +54,14 @@ B365H, B365D, B365A = Bet365 odds (home win, draw, away win)
 May include closing odds (B365CH, B365CD, B365CA) for later seasons
 
 
-## 🚧 Data Challenges & Solutions
+## Data Challenges & Solutions
 
 ### Challenges Faced
 During data collection from football-data.co.uk spanning 25+ seasons (2000-2025), several issues emerged:
 
-1. **📅 Inconsistent Date Formats**: Different seasons used varying date formats (`DD/MM/YY`, `DD/MM/YYYY`, `YYYY-MM-DD`)
-2. **💾 Corrupted Files**: Some season files were incomplete or had encoding issues
-3. **📊 Non-Deterministic Columns**: Column availability varied significantly across seasons
+1. **Inconsistent Date Formats**: Different seasons used varying date formats (`DD/MM/YY`, `DD/MM/YYYY`, `YYYY-MM-DD`)
+2. **Corrupted Files**: Some season files were incomplete or had encoding issues
+3. **Non-Deterministic Columns**: Column availability varied significantly across seasons
 
 ### Solution Approach
 
@@ -112,7 +112,7 @@ def parse_match_date(date_str):
 
 ---
 
-##  Technologies Used
+## Technologies Used
 | Purpose             | Tools / Stack                                         |
 | ------------------- | ------------------------------------------------------|
 | Language            | Python 3.11                                           |
@@ -182,36 +182,26 @@ def predict_match_outcome(home_team, away_team):
 
 To activate and install the dependencies for this project, follow these steps:
 
-1. **Activate Pipenv Shell**
-   Open your terminal and navigate to the project directory:
+1. **Install Dependencies Using UV (Recommended)**
+   Navigate to the project directory and install dependencies:
    ```bash
-   > cd /path/to/EPL-predictions
+   cd /path/to/EPL-predictions
+   uv sync
    ```
 
-2. **Install Dependencies Using uv (Recommended)**
-   If you have `uv` installed, set the environment variable and run:
+2. **Install Development Dependencies**
+   For development work, install all dependencies including dev extras:
    ```bash
-   > export PIPENV_INSTALLER=uv
-   > pipenv install
-    # or install all including dev dependancies
-   > pipenv shell --dev
-   ```
-   This will use `uv` for faster and more reliable dependency installation.
-
-3. **If uv Is Not Found**
-   If you do not have `uv` installed, Pipenv will fall back to using `pip`.
-   You can install dependencies normally:
-   ```bash
-   > pipenv install
+   uv sync --all-extras
    ```
 
-4. **Activate the Virtual Environment**
-   After installation, activate the environment:
+3. **Run Commands**
+   Execute scripts using UV:
    ```bash
-   > pipenv shell
+   uv run python script.py
    ```
 
-This will set up all required packages as specified in the `Pipfile` and locking the dependancies on `Pipfile.lock`.
+This will set up all required packages as specified in the `pyproject.toml` file.
 
 ---
 
@@ -245,10 +235,10 @@ ls .git/hooks | grep -v '\.sample$'
 
 ### What pre-commit will do
 
-- [x] Automatically runs code formatters (Black, isort, Ruff) on staged files before each commit.
-- [x] Runs linters (pylint) and security scanners (Bandit) to check code quality and security.
-- [x] Prevents commits if code does not meet quality or security standards.
-- [x] Helps maintain consistent code style and catch issues early.
+- Automatically runs code formatters (Black, isort, Ruff) on staged files before each commit.
+- Runs linters (pylint) and security scanners (Bandit) to check code quality and security.
+- Prevents commits if code does not meet quality or security standards.
+- Helps maintain consistent code style and catch issues early.
 
 You can manually run all hooks on all files with:
 ```bash
@@ -714,7 +704,7 @@ CREATE DATABASE mlflow_tracking;
 
 ---
 
-## 🔄 Data Pipelines
+## Data Pipelines
 
 The project includes robust **data ingestion pipelines** built with Prefect for orchestration, supporting both local development and AWS cloud deployments.
 
