@@ -7,7 +7,7 @@ Unlike one-off models, this system mirrors the behavior of a live production ser
 Data is sourced from [football-data.co.uk](https://www.football-data.co.uk/), a long-standing source of structured football statistics. It covers Premier League fixtures from the 1993–94 season to today, with updates published twice weekly. This project uses only top-tier matches (E0 league code).
 
 <p align="center">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Premier_League_Trophy_at_Manchester%27s_National_Football_Museum_%28Ank_Kumar%29_03.jpg/250px-Premier_League_Trophy_at_Manchester%27s_National_Football_Museum_%28Ank_Kumar%29_03.jpg" />
+  <a title="Ank Kumar, CC BY-SA 4.0 &lt;https://creativecommons.org/licenses/by-sa/4.0&gt;, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Premier_League_Trophy_at_Manchester%27s_National_Football_Museum_(Ank_Kumar)_03.jpg"><img width="256" alt="Premier League Trophy at Manchester&#039;s National Football Museum" src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Premier_League_Trophy_at_Manchester%27s_National_Football_Museum_%28Ank_Kumar%29_03.jpg/256px-Premier_League_Trophy_at_Manchester%27s_National_Football_Museum_%28Ank_Kumar%29_03.jpg?20210412094232"></a>
 </p>
 
 Here’s a look at some practical use cases for the 🏆 **EPL-Predictions** module:
@@ -99,7 +99,7 @@ pre-commit run --all
 ## Data Source and Data Pipelines
 
 <p align="center">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Ryan_Valentine_scores.jpg/330px-Ryan_Valentine_scores.jpg" />
+  <a title="Markbarnes, CC BY-SA 3.0 &lt;http://creativecommons.org/licenses/by-sa/3.0/&gt;, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Ryan_Valentine_scores.jpg"><img width="512" alt="The old Kop stand in the Racecourse Ground of Wrexham A.F.C." src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Ryan_Valentine_scores.jpg/512px-Ryan_Valentine_scores.jpg?20070518173434"></a>
 </p>
 
 ### Data Source
