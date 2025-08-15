@@ -84,25 +84,49 @@ def get_current_season() -> str:
 
 @task(retries=1, retry_delay_seconds=5)
 def _clean_data(season: str, df: pd.DataFrame) -> pd.DataFrame:
-    """Snake casing column names, clean and format the date column in the DataFrame."""
+    """Clean and standardize DataFrame with column formatting, date parsing, and validation."""
+    logger = get_run_logger()
+
+    # Step 1: Input validation
     if len(df) == 0:
         raise ValueError("Received empty DataFrame, cannot clean data")
 
-    logger = get_run_logger()
-
-    df_cleaned = df.copy()  # Create a copy to avoid modifying original
-
+    # Step 2: Create working copy and standardize column names
+    df_cleaned = df.copy()
     df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(" ", "_")
+    logger.debug("Standardized column names to snake_case")
 
+    # Step 3: Parse and clean date column
     df_cleaned["date"] = df_cleaned["date"].apply(parse_match_date)
-    df_cleaned = df_cleaned.dropna(subset=["date", "hometeam", "awayteam"])  # Drop rows with invalid dates
+    initial_rows = len(df_cleaned)
+    df_cleaned = df_cleaned.dropna()
+    for col in df_cleaned.select_dtypes(include=["object"]).columns:
+        df_cleaned = df_cleaned[df_cleaned[col].str.strip() != ""]
+    dropped_rows = initial_rows - len(df_cleaned)
+    if dropped_rows > 0:
+        logger.warning(f"Dropped {dropped_rows} rows with invalid dates or missing team names")
 
+    # Step 4: Add season identifier and remove duplicates
     df_cleaned["season"] = season
+    initial_rows = len(df_cleaned)
     df_cleaned = df_cleaned.drop_duplicates(subset=["date", "hometeam", "awayteam", "season", "div"])
+    duplicate_rows = initial_rows - len(df_cleaned)
+    if duplicate_rows > 0:
+        logger.info(f"Removed {duplicate_rows} duplicate matches")
 
-    logger.info(f"Cleaned data: {len(df_cleaned)} rows, {len(df_cleaned.columns)} columns")
+    # Step 5: Validate required columns
+    required_columns = get_required_columns()
+    if not required_columns:
+        raise ValueError("No required columns found in configuration file")
 
-    return df_cleaned
+    missing_columns = set(required_columns) - set(df_cleaned.columns)
+    if missing_columns:
+        logger.error(f"Missing required columns in DataFrame: {missing_columns}")
+        raise ValueError(f"Missing required columns in DataFrame: {missing_columns}")
+
+    # Step 6: Return final cleaned dataset
+    logger.info(f"Data cleaning completed: {len(df_cleaned)} rows, {len(required_columns)} columns")
+    return df_cleaned[required_columns]
 
 
 @task(
@@ -128,20 +152,7 @@ def get_season_results(season: str, division_code: str) -> pd.DataFrame:
         raise ValueError(f"No data available for season {season}, division {division_code}")
 
     df = pd.read_csv(BytesIO(response.content))
-    cleaned_df = _clean_data(season, df)
-
-    required_columns = get_required_columns()
-
-    if not required_columns:
-        raise ValueError("No required columns found in configuration file")
-
-    # raise if the columns are not present in the DataFrame
-    missing_columns = set(required_columns) - set(cleaned_df.columns)
-    if missing_columns:
-        logger.error(f"Missing required columns in DataFrame: {missing_columns}")
-        raise ValueError(f"Missing required columns in DataFrame: {missing_columns}")
-
-    return cleaned_df[required_columns]
+    return _clean_data(season, df)
 
 
 @task(retries=3, retry_delay_seconds=5)
