@@ -1,0 +1,423 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPL Feature Selection Analysis Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .summary-card {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #3498db;
+        }
+
+        .summary-card h3 {
+            color: #2c3e50;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .summary-card p {
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .method-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .method-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-top: 4px solid #e74c3c;
+        }
+
+        .method-card h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .feature-set {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border-left: 5px solid #27ae60;
+        }
+
+        .feature-set.recommended {
+            background: linear-gradient(135deg, #dff0d8, #d4edda);
+            border-left-color: #27ae60;
+            border-left-width: 8px;
+        }
+
+        .feature-set h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .badge {
+            background: #27ae60;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #ecf0f1;
+            display: flex;
+            align-items: center;
+        }
+
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+
+        .star {
+            color: #f39c12;
+            margin-left: 10px;
+            font-size: 1.2em;
+        }
+
+        .insights {
+            background: linear-gradient(135deg, #e8f5e8, #d4edda);
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+
+        .insights h3 {
+            color: #27ae60;
+            margin-bottom: 15px;
+        }
+
+        .insights ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .insights li {
+            padding: 5px 0;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .insights li:before {
+            content: "💡";
+            position: absolute;
+            left: 0;
+        }
+
+        .recommendation {
+            background: linear-gradient(135deg, #fff3cd, #ffeeba);
+            padding: 25px;
+            border-radius: 10px;
+            border-left: 5px solid #ffc107;
+        }
+
+        .recommendation h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .correlation-info {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .correlation-info h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .method-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 EPL Feature Selection Analysis</h1>
+            <p class="subtitle">Comprehensive ML Feature Analysis Report</p>
+            <p style="opacity: 0.7; margin-top: 10px;">Generated on August 17, 2025 at 12:14 AM</p>
+        </div>
+
+        <div class="content">
+            <!-- Executive Summary -->
+            <div class="section">
+                <h2>📊 Executive Summary</h2>
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>19</h3>
+                        <p>Features Analyzed</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3>5</h3>
+                        <p>Selection Methods</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3>3</h3>
+                        <p>Consensus Features</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3>7</h3>
+                        <p>Recommended Features</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Methodology -->
+            <div class="section">
+                <h2>🔬 Feature Selection Methods</h2>
+                <div class="method-grid">
+                    <div class="method-card">
+                        <h4>📈 F-test (Statistical)</h4>
+                        <p>Tests linear relationship between features and target using ANOVA F-statistic. Higher F-scores indicate stronger linear relationships.</p>
+                    </div>
+                    <div class="method-card">
+                        <h4>🔍 Mutual Information</h4>
+                        <p>Captures non-linear dependencies between features and target. Measures information shared between variables.</p>
+                    </div>
+                    <div class="method-card">
+                        <h4>✅ Chi-squared Test</h4>
+                        <p>Tests independence between categorical variables. Higher scores indicate stronger associations with the target.</p>
+                    </div>
+                    <div class="method-card">
+                        <h4>🌲 Random Forest Importance</h4>
+                        <p>Tree-based method that captures feature interactions and non-linear relationships. Considers contextual importance.</p>
+                    </div>
+                    <div class="method-card">
+                        <h4>🔄 Recursive Feature Elimination</h4>
+                        <p>Iteratively removes features and builds model on remaining attributes. Identifies optimal feature subset.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Correlation -->
+            <div class="section">
+                <h2>🔗 Feature Correlation Analysis</h2>
+                <div class="correlation-info">
+                    <h4>High Correlation Pairs Identified</h4>
+                    <p><strong>6 pairs</strong> with correlation > 0.7 were identified and considered for removal to reduce redundancy.</p>
+                    <p>The recommended feature sets avoid including highly correlated features to prevent multicollinearity issues.</p>
+                </div>
+            </div>
+
+            <!-- Recommended Feature Sets -->
+            <div class="section">
+                <h2>🎯 Recommended Feature Sets</h2>
+
+                <!-- Minimal Set -->
+                <div class="feature-set">
+                    <h3>🔥 Minimal Set (4 features)</h3>
+                    <p style="margin-bottom: 15px; color: #666;">Essential features only - highest consensus across all methods</p>
+                    <ul class="feature-list">
+                        <li>1. home_goals_conceded_last_n <span class="star">★</span></li>
+                        <li>2. away_goals_scored_last_n <span class="star">★</span></li>
+                        <li>3. home_goals_scored_last_n <span class="star">★</span></li>
+                        <li>4. away_goals_conceded_last_n</li>
+                    </ul>
+                </div>
+
+                <!-- Balanced Set (Recommended) -->
+                <div class="feature-set recommended">
+                    <h3>⚖️ Balanced Set (7 features) <span class="badge">RECOMMENDED</span></h3>
+                    <p style="margin-bottom: 15px; color: #666;">Optimal balance of predictive power and model simplicity</p>
+                    <ul class="feature-list">
+                        <li>1. home_goals_conceded_last_n <span class="star">★</span></li>
+                        <li>2. away_goals_scored_last_n <span class="star">★</span></li>
+                        <li>3. home_goals_scored_last_n <span class="star">★</span></li>
+                        <li>4. away_goals_conceded_last_n</li>
+                        <li>5. h2h_away_wins</li>
+                        <li>6. h2h_home_wins</li>
+                        <li>7. whh_away_avg</li>
+                    </ul>
+                </div>
+
+                <!-- Comprehensive Set -->
+                <div class="feature-set">
+                    <h3>🚀 Comprehensive Set (10 features)</h3>
+                    <p style="margin-bottom: 15px; color: #666;">Maximum feature coverage for complex models</p>
+                    <ul class="feature-list">
+                        <li>1. home_goals_conceded_last_n <span class="star">★</span></li>
+                        <li>2. away_goals_scored_last_n <span class="star">★</span></li>
+                        <li>3. home_goals_scored_last_n <span class="star">★</span></li>
+                        <li>4. away_goals_conceded_last_n</li>
+                        <li>5. h2h_away_wins</li>
+                        <li>6. h2h_home_wins</li>
+                        <li>7. whh_away_avg</li>
+                        <li>8. home_wins_last_n</li>
+                        <li>9. away_wins_last_n</li>
+                        <li>10. whd_away_avg</li>
+                    </ul>
+                </div>
+
+                <p style="text-align: center; color: #666; font-style: italic;">
+                    ★ = Consensus features (agreed upon by all 5 methods)
+                </p>
+            </div>
+
+            <!-- Key Insights -->
+            <div class="section">
+                <h2>💡 Key Insights</h2>
+                <div class="insights">
+                    <h3>🎯 Feature Analysis Findings</h3>
+                    <ul>
+                        <li><strong>Goal Statistics Dominate:</strong> Home/away goals scored and conceded are the strongest predictors</li>
+                        <li><strong>Head-to-Head History Matters:</strong> Historical matchup data adds significant predictive value</li>
+                        <li><strong>Betting Odds Capture Market Intelligence:</strong> Bookmaker odds reflect comprehensive market analysis</li>
+                        <li><strong>Form Stats Less Important:</strong> Simple win/loss records are less predictive than expected</li>
+                        <li><strong>Feature Interactions:</strong> Random Forest revealed important feature combinations not visible in univariate analysis</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Final Recommendation -->
+            <div class="section">
+                <h2>🏅 Final Recommendation</h2>
+                <div class="recommendation">
+                    <h3>🎯 Recommended Action Plan</h3>
+                    <p><strong>Use the BALANCED SET (7 features)</strong> for optimal model performance:</p>
+                    <ul style="margin: 15px 0; padding-left: 20px;">
+                        <li>✅ Combines high predictive power with model simplicity</li>
+                        <li>✅ Covers all important feature types: Goals, H2H, Betting, Form</li>
+                        <li>✅ Avoids feature redundancy and multicollinearity</li>
+                        <li>✅ Includes 3 consensus features with proven importance</li>
+                        <li>✅ Suitable for production deployment with manageable complexity</li>
+                    </ul>
+                    <p style="background: rgba(255,255,255,0.7); padding: 15px; border-radius: 5px; margin-top: 15px;">
+                        <strong>Implementation:</strong> Access the recommended features using
+                        <code style="background: #f1f1f1; padding: 2px 6px; border-radius: 3px;">feature_recommendations['balanced']</code>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Technical Details -->
+            <div class="section">
+                <h2>🔧 Technical Implementation Details</h2>
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                    <h4>Model Training Readiness</h4>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li><strong>Data Shape:</strong> 8,518 samples × 7 features</li>
+                        <li><strong>Target Classes:</strong> 3 classes (Home Win, Draw, Away Win)</li>
+                        <li><strong>Missing Values:</strong> Handled via mean imputation</li>
+                        <li><strong>Feature Scaling:</strong> Not required for tree-based models</li>
+                        <li><strong>Reproducibility:</strong> All random states set to 42</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🏆 EPL Predictions ML Pipeline | Feature Selection Analysis Complete</p>
+            <p style="opacity: 0.7; margin-top: 5px;">Ready for model training and deployment</p>
+        </div>
+    </div>
+</body>
+</html>

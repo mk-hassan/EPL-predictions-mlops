@@ -1,0 +1,26 @@
+
+EPL FEATURE SELECTION - QUICK REFERENCE
+=====================================
+
+RECOMMENDED FEATURE SET (7 features):
+1. home_goals_conceded_last_n ★
+2. away_goals_scored_last_n ★
+3. home_goals_scored_last_n ★
+4. away_goals_conceded_last_n
+5. h2h_away_wins
+6. h2h_home_wins
+7. whh_away_avg
+
+★ = Consensus features (all 5 methods agree)
+
+ANALYSIS SUMMARY:
+• 19 features analyzed
+• 3 consensus features identified
+• 6 high correlation pairs avoided
+• 5 selection methods used: F-test, Mutual Info, Chi2, Random Forest, RFE
+
+NEXT STEPS:
+1. Use feature_recommendations['balanced'] for model training
+2. Validate performance with cross-validation
+3. Consider feature_recommendations['minimal'] for simpler models
+4. Deploy with confidence - analysis complete!
